@@ -1,0 +1,37 @@
+# One-time workflow: build OpenBLAS for Android arm64-v8a so you can download the artifact
+# and drop it into scripts/prebuilt/openblas-arm64-v8a/ (avoids building OpenBLAS in WSL).
+name: Build OpenBLAS for Android arm64
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up NDK
+        run: |
+          curl -L -o ndk.zip https://dl.google.com/android/repository/android-ndk-r27-linux.zip
+          unzip -q ndk.zip
+          echo "ANDROID_NDK_HOME=$PWD/$(ls -d android-ndk-*)" >> $GITHUB_ENV
+
+      - name: Build OpenBLAS
+        run: |
+          export CC=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/clang
+          export AR=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar
+          git clone -b v0.3.13 --depth 1 https://github.com/OpenMathLib/OpenBLAS
+          cd OpenBLAS
+          make TARGET=ARMV8 ONLY_CBLAS=1 USE_THREAD=0 NUM_THREADS=1 \
+            CC="$CC -target aarch64-linux-android21" AR=$AR HOSTCC=gcc -j4
+          make install PREFIX=$RUNNER_WORKSPACE/openblas-out
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openblas-arm64-v8a
+          path: |
+            ${{ runner.workspace }}/openblas-out/lib
+            ${{ runner.workspace }}/openblas-out/include
