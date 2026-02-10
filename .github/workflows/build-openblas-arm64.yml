@@ -24,7 +24,7 @@ jobs:
           export AR=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar
           git clone -b v0.3.13 --depth 1 https://github.com/OpenMathLib/OpenBLAS
           cd OpenBLAS
-          make TARGET=ARMV8 ONLY_CBLAS=1 USE_THREAD=0 NUM_THREADS=1 \
+          make TARGET=ARMV8 ONLY_CBLAS=1 USE_THREAD=0 NUM_THREADS=1 NO_SHARED=1 \
             CC="$CC -target aarch64-linux-android21" AR=$AR HOSTCC=gcc -j4
           make install PREFIX=$RUNNER_WORKSPACE/openblas-out
 
