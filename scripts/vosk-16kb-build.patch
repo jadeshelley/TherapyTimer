@@ -1,0 +1,38 @@
+--- a/android/lib/build-vosk.sh
++++ b/android/lib/build-vosk.sh
+@@ -48,6 +48,7 @@ armeabi-v7a)
+  CC=armv7a-linux-androideabi21-clang
+  CXX=armv7a-linux-androideabi21-clang++
+  ARCHFLAGS="-mfloat-abi=softfp -mfpu=neon"
++ PAGESIZE_LDFLAGS=""
+  ;;
+  arm64-v8a)
+  BLAS_ARCH=ARMV8
+@@ -55,6 +56,7 @@ arm64-v8a)
+  CC=aarch64-linux-android21-clang
+  CXX=aarch64-linux-android21-clang++
+  ARCHFLAGS=""
++ PAGESIZE_LDFLAGS="-Wl,-z,max-page-size=16384"
+  ;;
+  x86_64)
+@@ -64,6 +66,7 @@ x86_64)
+  CC=x86_64-linux-android21-clang
+  CXX=x86_64-linux-android21-clang++
+  ARCHFLAGS=""
++ PAGESIZE_LDFLAGS=""
+  ;;
+  x86)
+@@ -73,6 +76,7 @@ x86)
+  CC=i686-linux-android21-clang
+  CXX=i686-linux-android21-clang++
+  ARCHFLAGS=""
++ PAGESIZE_LDFLAGS=""
+  ;;
+  esac
+@@ -131,7 +134,7 @@ make -j 8 online2 lm rnnlm
+  OPENFST_ROOT=${WORKDIR}/local \
+  OPENBLAS_ROOT=${WORKDIR}/local \
+  CXX=$CXX \
+- EXTRA_LDFLAGS="-llog -static-libstdc++ -Wl,-soname,libvosk.so"
++ EXTRA_LDFLAGS="-llog -static-libstdc++ -Wl,-soname,libvosk.so ${PAGESIZE_LDFLAGS}"
+  cp $WORKDIR/vosk/libvosk.so $WORKDIR/../../src/main/jniLibs/$arch/libvosk.so

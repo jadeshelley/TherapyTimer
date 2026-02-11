@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Splash screen center icon. Uses launcher foreground by default.
+     To use your own image: add your PNG to res/drawable (e.g. splash_logo.png),
+     then replace the item below with: <item android:drawable="@drawable/splash_logo" /> -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@drawable/tt_icon2" />
+</layer-list>

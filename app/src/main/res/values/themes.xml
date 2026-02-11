@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Theme.TherapyTimer" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!-- Splash screen theme: shows app icon on launch (Android 12+ style on all supported APIs) -->
+    <style name="Theme.TherapyTimer.Splash" parent="Theme.SplashScreen">
+        <item name="postSplashScreenTheme">@style/Theme.TherapyTimer</item>
+    </style>
+</resources>

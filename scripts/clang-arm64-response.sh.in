@@ -1,0 +1,5 @@
+#!/bin/sh
+# Minimal wrapper: pass all args to clang (no response file). If this fails with
+# "argument list too long", the NDK/clang in this env doesn't handle long argv.
+# Path substituted at build time: CLANG_PATH_PLACEHOLDER
+exec CLANG_PATH_PLACEHOLDER -target aarch64-linux-android21 "$@"

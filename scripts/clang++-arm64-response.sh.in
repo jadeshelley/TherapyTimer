@@ -1,0 +1,4 @@
+#!/bin/sh
+# Minimal wrapper: pass all args to clang (no response file).
+# Path substituted at build time: CLANG_PATH_PLACEHOLDER
+exec CLANG_PATH_PLACEHOLDER -target aarch64-linux-android21 "$@"

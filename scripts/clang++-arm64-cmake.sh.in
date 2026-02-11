@@ -1,0 +1,24 @@
+#!/bin/sh
+# Wrapper that passes args to clang++ via a single response file (one arg per line).
+# Fixes CMake TryCompile "no input files" when compiler is a script (response file format/quoting).
+# CLANG_PATH_PLACEHOLDER is replaced at build time.
+CLANG="CLANG_PATH_PLACEHOLDER"
+tmp=$(mktemp) || exit 1
+trap 'rm -f "$tmp"' EXIT
+{
+  printf '%s\n' "-target" "aarch64-linux-android21"
+  for a in "$@"; do
+    case "$a" in
+      @*)
+        f="${a#@}"
+        while IFS= read -r line; do
+          printf '%s\n' "$(printf '%s' "$line" | sed 's/\r$//')"
+        done < "$f"
+        ;;
+      *)
+        printf '%s\n' "$a"
+        ;;
+    esac
+  done
+} > "$tmp"
+exec "$CLANG" "@$tmp"

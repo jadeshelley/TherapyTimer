@@ -1,0 +1,29 @@
+#!/bin/sh
+# Wrapper that passes args to clang via a response file (one arg per line).
+# When Ninja runs via sh -c "wrapper args...", we may get one big argv[1]; split it so clang gets each arg.
+# CLANG_PATH_PLACEHOLDER is replaced at build time.
+CLANG="CLANG_PATH_PLACEHOLDER"
+tmp=$(mktemp) || exit 1
+trap 'rm -f "$tmp"' EXIT
+# When Ninja uses response file it passes one arg: @rspfile — do not split that
+# When Ninja passes one big string (e.g. WSL), split so we get -c and the source path
+if [ $# -eq 1 ] && [ "${1#@}" = "$1" ]; then
+  set -- $1
+fi
+{
+  printf '%s\n' "-target" "aarch64-linux-android21"
+  for a in "$@"; do
+    case "$a" in
+      @*)
+        f="${a#@}"
+        while IFS= read -r line; do
+          printf '%s\n' "$(printf '%s' "$line" | sed 's/\r$//')"
+        done < "$f"
+        ;;
+      *)
+        printf '%s\n' "$a"
+        ;;
+    esac
+  done
+} > "$tmp"
+exec "$CLANG" "@$tmp"
