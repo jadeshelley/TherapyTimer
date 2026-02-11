@@ -59,9 +59,13 @@ class TimerViewModel : ViewModel() {
         val isSameRoutine = _exerciseRoutine.value == routine
         _exerciseRoutine.value = routine
         _isBasicMode.value = false
-        // Only clear completed state when switching to a different routine (e.g. from Settings).
+        // When switching to a different routine, reset progress so the new routine starts from the beginning.
         // On rotation, MainActivity reapplies the same routine from preferences; don't clear then.
         if (!isSameRoutine) {
+            countdownJob?.cancel()
+            _timerState.value = TimerState.Idle
+            _currentExerciseIndex.value = 0
+            _currentCount.value = 0
             _completedExerciseIndices.value = emptySet()
         }
     }

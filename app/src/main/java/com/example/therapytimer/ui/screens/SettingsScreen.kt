@@ -26,12 +26,16 @@ import com.example.therapytimer.data.ExerciseRoutine
 import com.example.therapytimer.data.NamedRoutine
 import com.example.therapytimer.util.PreferencesManager
 import com.example.therapytimer.viewmodel.TimerViewModel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     viewModel: TimerViewModel,
     preferencesManager: PreferencesManager,
+    voiceLogManager: com.example.therapytimer.util.VoiceLogManager,
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -47,6 +51,7 @@ fun SettingsScreen(
     var showRoutineEdit by remember { mutableStateOf(false) }
     var editRoutineForNew by remember { mutableStateOf<NamedRoutine?>(null) }
     var showInstructions by remember { mutableStateOf(false) }
+    var showVoiceLogs by remember { mutableStateOf(false) }
 
     // Snapshot of state when Settings was opened (for unsaved-changes detection)
     val initialMode = remember { mutableStateOf(if (isBasicMode) "basic" else "custom") }
@@ -111,6 +116,12 @@ fun SettingsScreen(
     } else if (showInstructions) {
         BackHandler { showInstructions = false }
         InstructionsScreen(onNavigateBack = { showInstructions = false })
+    } else if (showVoiceLogs) {
+        BackHandler { showVoiceLogs = false }
+        VoiceLogsScreen(
+            voiceLogManager = voiceLogManager,
+            onNavigateBack = { showVoiceLogs = false }
+        )
     } else {
     BackHandler {
         if (hasUnsavedChanges) showUnsavedDialog = true else onNavigateBack()
@@ -326,6 +337,38 @@ fun SettingsScreen(
                 }
             }
 
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Voice recognition logs
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp)
+                    .clickable { showVoiceLogs = true }
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Voice recognition logs",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = "Review what the app heard by session",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Text("→", fontSize = 18.sp, color = MaterialTheme.colorScheme.primary)
+                }
+            }
+
             Spacer(modifier = Modifier.height(24.dp))
 
             if (selectedMode != "basic") {
@@ -518,6 +561,137 @@ fun SettingsScreen(
     }
     }
 }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun VoiceLogsScreen(
+    voiceLogManager: com.example.therapytimer.util.VoiceLogManager,
+    onNavigateBack: () -> Unit
+) {
+    var refreshKey by remember { mutableStateOf(0) }
+    val logs = remember(refreshKey) {
+        voiceLogManager.readAllChunks().sortedByDescending { it.startedAt }
+    }
+    var showClearConfirm by remember { mutableStateOf(false) }
+    val dateFormat = remember {
+        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+    }
+
+    if (showClearConfirm) {
+        AlertDialog(
+            onDismissRequest = { showClearConfirm = false },
+            title = { Text("Clear voice logs?") },
+            text = { Text("All logged phrases will be deleted. This cannot be undone.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        voiceLogManager.clearLog()
+                        refreshKey++
+                        showClearConfirm = false
+                    }
+                ) {
+                    Text("Clear", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearConfirm = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Voice recognition logs") },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Text("←", fontSize = 24.sp)
+                    }
+                },
+                actions = {
+                    if (logs.isNotEmpty()) {
+                        TextButton(onClick = { showClearConfirm = true }) {
+                            Text("Clear log", color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                }
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState())
+        ) {
+            if (logs.isEmpty()) {
+                Text(
+                    text = "No voice logs yet. Use voice commands during a routine to populate this list.",
+                    fontSize = 14.sp
+                )
+            } else {
+                logs.forEach { chunk ->
+                    val start = if (chunk.startedAt > 0) dateFormat.format(Date(chunk.startedAt)) else "?"
+                    val end = if (chunk.endedAt > 0) dateFormat.format(Date(chunk.endedAt)) else "?"
+                    val modeLabel = if (chunk.isBasicMode) "Basic mode" else "Custom mode"
+                    val triggerLabel = when (chunk.trigger) {
+                        "routine_complete" -> "Routine completed"
+                        "settings_opened" -> "Left timer"
+                        "session_switch" -> "New session"
+                        else -> chunk.trigger
+                    }
+                    val routineLabel = chunk.routineId?.let { "Routine id: $it" } ?: "No routine id"
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 12.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = "$modeLabel • $triggerLabel",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = routineLabel,
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = "From $start to $end",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            if (chunk.texts.isNotEmpty()) {
+                                Text(
+                                    text = "Heard:",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    modifier = Modifier.padding(top = 4.dp)
+                                )
+                                chunk.texts.forEach { t ->
+                                    Text(
+                                        text = "• $t",
+                                        fontSize = 13.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 
 @Composable
 private fun infoCard(title: String, content: String) {

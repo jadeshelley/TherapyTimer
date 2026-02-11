@@ -59,6 +59,8 @@ class VoiceRecognitionManager(private val context: Context) {
     var onRestartDetected: (() -> Unit)? = null
     var onResetDetected: (() -> Unit)? = null
     var onStartDetected: (() -> Unit)? = null
+    /** Called whenever recognition produces non-empty text (partial or final). */
+    var onRecognizedText: ((String) -> Unit)? = null
 
     companion object {
         private const val TAG = "VoiceRecognition"
@@ -252,8 +254,11 @@ class VoiceRecognitionManager(private val context: Context) {
             val displayText = text.ifEmpty { partial }
             handler.post {
                 _hearingText.value = displayText
-                // Only run commands on final results ("text"), not on partials
-                if (text.isNotEmpty()) processVoiceCommand(text.lowercase())
+                // Only log final results so we don't get 5–9 duplicate entries per phrase (partials + final)
+                if (text.isNotEmpty()) {
+                    onRecognizedText?.invoke(text)
+                    processVoiceCommand(text.lowercase())
+                }
             }
         } catch (_: Exception) { }
     }

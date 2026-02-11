@@ -34,6 +34,7 @@ class MainActivity : ComponentActivity() {
     private val viewModel: TimerViewModel by viewModels()
     /** Created in onCreate so model loading starts immediately; callbacks set when permission granted. */
     private lateinit var voiceRecognitionManager: VoiceRecognitionManager
+    private lateinit var voiceLogManager: com.example.therapytimer.util.VoiceLogManager
     private var soundPlayer: SoundPlayer? = null
     private lateinit var preferencesManager: PreferencesManager
     private var audioManager: AudioManager? = null
@@ -48,6 +49,8 @@ class MainActivity : ComponentActivity() {
     private var routineCompleteSoundPlayed: Boolean = false
     /** Start the count this many ms after notification starts (give notification time to finish). */
     private val notificationToCountDelayMs = 700L
+    /** True only when the timer screen is visible; voice is processed and logged only when this is true. */
+    private var isOnTimerScreen: Boolean = false
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -71,6 +74,7 @@ class MainActivity : ComponentActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         preferencesManager = PreferencesManager(this)
+        voiceLogManager = com.example.therapytimer.util.VoiceLogManager(this)
         soundPlayer = SoundPlayer(this, preferencesManager)
         voiceRecognitionManager = VoiceRecognitionManager(this)
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -129,6 +133,7 @@ class MainActivity : ComponentActivity() {
         // Routine complete: if from timer, play "finished" after the last rep's count; if from Done button/voice, play now
         viewModel.onRoutineComplete = { fromTimerCompletion ->
             runOnUiThread {
+                voiceLogManager.onTrigger("routine_complete", preferencesManager.getCurrentRoutineId(), viewModel.isBasicMode.value)
                 if (fromTimerCompletion) {
                     pendingPlayFinished = true
                 } else {
@@ -168,10 +173,15 @@ class MainActivity : ComponentActivity() {
                     viewModel = viewModel,
                     preferencesManager = preferencesManager,
                     voiceRecognitionManager = voiceRecognitionManager,
+                    voiceLogManager = voiceLogManager,
                     voiceControlEnabled = voiceControlEnabledState,
                     customSplashStartDelayMs = systemSplashDisplayMs,
+                    onScreenChange = { isTimer ->
+                        isOnTimerScreen = isTimer
+                    },
                     onMainScreenShown = {
                         hasReachedMainScreen = true
+                        voiceLogManager.startNewSession()
                         if (isVoiceControlEnabled) {
                             setNotificationMute(true)
                             voiceRecognitionManager.startListening()
@@ -182,6 +192,7 @@ class MainActivity : ComponentActivity() {
                             voiceRecognitionManager.stopListening()
                             setNotificationMute(false)
                         }
+                        voiceLogManager.onTrigger("settings_opened", preferencesManager.getCurrentRoutineId(), viewModel.isBasicMode.value)
                     },
                     onSettingsClosed = {
                         if (isVoiceControlEnabled) {
@@ -215,6 +226,7 @@ class MainActivity : ComponentActivity() {
             }
             onNextDetected = {
                 runOnUiThread {
+                    if (!isOnTimerScreen) return@runOnUiThread
                     val timerState = viewModel.timerState.value
                     when (timerState) {
                         is com.example.therapytimer.ui.TimerState.Idle -> viewModel.startTimer()
@@ -225,6 +237,7 @@ class MainActivity : ComponentActivity() {
             }
             onStartDetected = {
                 runOnUiThread {
+                    if (!isOnTimerScreen) return@runOnUiThread
                     val timerState = viewModel.timerState.value
                     val currentCount = viewModel.currentCount.value
                     when (timerState) {
@@ -238,6 +251,7 @@ class MainActivity : ComponentActivity() {
             }
             onDoneDetected = {
                 runOnUiThread {
+                    if (!isOnTimerScreen) return@runOnUiThread
                     if (viewModel.isBasicMode.value) {
                         // In basic mode, "done" behaves like reset (new simple exercise)
                         viewModel.resetExercise()
@@ -249,14 +263,19 @@ class MainActivity : ComponentActivity() {
             }
             onRestartDetected = {
                 runOnUiThread {
+                    if (!isOnTimerScreen) return@runOnUiThread
                     viewModel.restartCurrentCount()
                 }
             }
             onResetDetected = {
                 runOnUiThread {
+                    if (!isOnTimerScreen) return@runOnUiThread
                     // Voice "reset" should mirror the Reset button
                     viewModel.resetExercise()
                 }
+            }
+            onRecognizedText = { text ->
+                if (isOnTimerScreen) voiceLogManager.addRecognizedText(text)
             }
             // Don't start here – wait until user taps Begin and main screen (TimerScreen) is shown via onMainScreenShown().
         }
@@ -352,9 +371,11 @@ fun TherapyTimerApp(
     viewModel: TimerViewModel,
     preferencesManager: PreferencesManager,
     voiceRecognitionManager: VoiceRecognitionManager,
+    voiceLogManager: com.example.therapytimer.util.VoiceLogManager,
     voiceControlEnabled: Boolean,
     onToggleVoiceControl: () -> Unit,
     customSplashStartDelayMs: Long = 3000L,
+    onScreenChange: (isTimerScreen: Boolean) -> Unit = {},
     onMainScreenShown: () -> Unit = {},
     onSettingsOpened: () -> Unit = {},
     onSettingsClosed: () -> Unit = {}
@@ -366,6 +387,11 @@ fun TherapyTimerApp(
 
     val modelLoadState by voiceRecognitionManager.modelLoadState.collectAsState()
     val showMainApp = modelLoadState is com.example.therapytimer.util.VoskModelLoadState.Ready || continueWithoutVoice
+
+    val isTimerScreenVisible = !showCustomSplash && !showInstructionsOnLaunch && showMainApp && !showSettings
+    LaunchedEffect(isTimerScreenVisible) {
+        onScreenChange(isTimerScreenVisible)
+    }
 
     if (showCustomSplash) {
         CustomSplashScreen(
@@ -395,6 +421,7 @@ fun TherapyTimerApp(
         SettingsScreen(
             viewModel = viewModel,
             preferencesManager = preferencesManager,
+            voiceLogManager = voiceLogManager,
             onNavigateBack = {
                 showSettings = false
                 onSettingsClosed()
@@ -408,8 +435,8 @@ fun TherapyTimerApp(
             viewModel = viewModel,
             preferencesManager = preferencesManager,
             onNavigateToSettings = {
-                showSettings = true
                 onSettingsOpened()
+                showSettings = true
             },
             isVoiceControlEnabled = voiceControlEnabled,
             onToggleVoiceControl = onToggleVoiceControl
