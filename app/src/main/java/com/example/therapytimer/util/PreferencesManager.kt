@@ -10,9 +10,11 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 class PreferencesManager(context: Context) {
-    private val prefs: SharedPreferences = context.getSharedPreferences("therapy_timer_prefs", Context.MODE_PRIVATE)
+    private val appContext: Context = context.applicationContext
+    private val prefs: SharedPreferences = appContext.getSharedPreferences("therapy_timer_prefs", Context.MODE_PRIVATE)
 
-    private fun escape(s: String): String = s.replace("\t", " ").replace("\n", " ")
+    private val instructionsShownThisInstallFile get() = java.io.File(appContext.noBackupFilesDir, "instructions_shown_install")
+
     private fun lineToExercise(line: String): Exercise? {
         val parts = line.split("\t")
         if (parts.size < 2) return null
@@ -37,6 +39,7 @@ class PreferencesManager(context: Context) {
     }
 
     fun getSavedRoutines(): List<NamedRoutine> {
+        if (!getFullVersionUnlocked()) return listOf(createDemoRoutine())
         val raw = prefs.getString("custom_routines_json", null)
         if (raw == null || raw.isEmpty()) {
             // Migrate from old single routine
@@ -60,6 +63,7 @@ class PreferencesManager(context: Context) {
     }
 
     fun setSavedRoutines(routines: List<NamedRoutine>) {
+        if (!getFullVersionUnlocked()) return
         val arr = JSONArray()
         routines.forEach { r ->
             val obj = JSONObject().apply {
@@ -143,9 +147,13 @@ class PreferencesManager(context: Context) {
         }
     }
 
-    fun getCurrentRoutineId(): String? = prefs.getString("current_routine_id", null)?.takeIf { it.isNotEmpty() }
+    fun getCurrentRoutineId(): String? {
+        if (!getFullVersionUnlocked()) return "demo"
+        return prefs.getString("current_routine_id", null)?.takeIf { it.isNotEmpty() }
+    }
 
     fun setCurrentRoutineId(id: String?) {
+        if (!getFullVersionUnlocked()) return
         prefs.edit().putString("current_routine_id", id ?: "").apply()
     }
 
@@ -157,36 +165,14 @@ class PreferencesManager(context: Context) {
         return named.toExerciseRoutine()
     }
 
-    /** Updates the current routine's exercise list (e.g. after reorder on timer screen) and saves. */
-    fun updateCurrentRoutineExercises(exercises: List<Exercise>) {
-        val id = getCurrentRoutineId() ?: return
-        val routines = getSavedRoutines().toMutableList()
-        val idx = routines.indexOfFirst { it.id == id }
-        if (idx < 0) return
-        routines[idx] = routines[idx].copy(exercises = exercises)
-        setSavedRoutines(routines)
-    }
-
-    /** @deprecated Use getSavedRoutines() and getCurrentRoutine() */
-    fun getSavedRoutine(): ExerciseRoutine? = getCurrentRoutine()
-
-    /** @deprecated Use getSavedRoutines() and setSavedRoutines() and setCurrentRoutineId() */
-    fun setSavedRoutine(routine: ExerciseRoutine?) {
-        if (routine == null) {
-            setSavedRoutines(emptyList())
-            setCurrentRoutineId(null)
-            return
-        }
-        val id = "default"
-        val named = NamedRoutine(id, "My Routine", routine.exercises)
-        setSavedRoutines(listOf(named))
-        setCurrentRoutineId(id)
-    }
-
     fun getIsBasicMode(): Boolean = prefs.getBoolean("is_basic_mode", true)
     fun setIsBasicMode(isBasic: Boolean) = prefs.edit().putBoolean("is_basic_mode", isBasic).apply()
     fun getVoiceControlEnabled(): Boolean = prefs.getBoolean("voice_control_enabled", true)
     fun setVoiceControlEnabled(enabled: Boolean) = prefs.edit().putBoolean("voice_control_enabled", enabled).apply()
+
+    /** True if user has unlocked the full version (multiple routines, edit, add, import, export). */
+    fun getFullVersionUnlocked(): Boolean = prefs.getBoolean("full_version_unlocked", false)
+    fun setFullVersionUnlocked(unlocked: Boolean) = prefs.edit().putBoolean("full_version_unlocked", unlocked).apply()
 
     fun getMuteAllSounds(): Boolean = prefs.getBoolean("mute_all_sounds", false)
     fun setMuteAllSounds(muted: Boolean) = prefs.edit().putBoolean("mute_all_sounds", muted).apply()
@@ -233,4 +219,14 @@ class PreferencesManager(context: Context) {
     /** If true, show the instructions screen when the app opens. Set false when user checks "Don't show this again". */
     fun getShowInstructionsOnLaunch(): Boolean = prefs.getBoolean("show_instructions_on_launch", true)
     fun setShowInstructionsOnLaunch(show: Boolean) = prefs.edit().putBoolean("show_instructions_on_launch", show).apply()
+
+    /** True if we have already shown the instructions screen this install. Stored in no-backup dir so it is not restored on reinstall. */
+    fun hasShownInstructionsThisInstall(): Boolean = instructionsShownThisInstallFile.exists()
+
+    /** Mark that we have shown the instructions this install (so we don't show again until next install). */
+    fun markInstructionsShownThisInstall() {
+        try {
+            instructionsShownThisInstallFile.writeText("1")
+        } catch (_: Exception) { /* ignore */ }
+    }
 }

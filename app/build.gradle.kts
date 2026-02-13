@@ -1,6 +1,7 @@
 import java.io.File
 import java.io.FileInputStream
-import java.net.URL
+import java.net.URI
+import java.util.Properties
 import java.util.zip.ZipInputStream
 
 plugins {
@@ -84,11 +85,12 @@ val extractJnaNativeLibs = tasks.register("extractJnaNativeLibs") {
             }
             if (extracted == 0) {
                 val jnaVersion = libs.versions.jna.get().toString()
-                val mavenAar = File(project.buildDir, "jna-${jnaVersion}.aar")
+                val buildDir = project.layout.buildDirectory.get().asFile
+                val mavenAar = File(buildDir, "jna-${jnaVersion}.aar")
                 if (!mavenAar.exists()) {
                     logger.lifecycle("No Android libs in JAR. Downloading JNA $jnaVersion AAR from Maven Central...")
                     mavenAar.parentFile.mkdirs()
-                    URL("https://repo1.maven.org/maven2/net/java/dev/jna/jna/${jnaVersion}/jna-${jnaVersion}.aar").openStream().use { input ->
+                    URI.create("https://repo1.maven.org/maven2/net/java/dev/jna/jna/$jnaVersion/jna-$jnaVersion.aar").toURL().openStream().use { input ->
                         mavenAar.outputStream().use { input.copyTo(it) }
                     }
                 }
@@ -134,8 +136,25 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        create("release") {
+            val keystoreFile = rootProject.file("keystore.properties")
+            if (keystoreFile.exists()) {
+                val props = Properties()
+                props.load(keystoreFile.inputStream())
+                storeFile = file(props["storeFile"]!!.toString().replace("\\", "/"))
+                storePassword = props["storePassword"]!!.toString()
+                keyAlias = props["keyAlias"]!!.toString()
+                keyPassword = props["keyPassword"]!!.toString()
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (rootProject.file("keystore.properties").exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -190,6 +209,7 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+    implementation(libs.billing.ktx)
     implementation(libs.vosk.android) {
         exclude(group = "net.java.dev.jna", module = "jna")
     }

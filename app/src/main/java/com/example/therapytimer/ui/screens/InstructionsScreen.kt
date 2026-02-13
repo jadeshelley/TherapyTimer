@@ -12,6 +12,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -20,8 +21,8 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun InstructionsScreen(
     onNavigateBack: () -> Unit,
-    onContinue: ((dontShowAgain: Boolean) -> Unit)? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onContinue: ((dontShowAgain: Boolean) -> Unit)? = null
 ) {
     var dontShowAgain by remember { mutableStateOf(false) }
     val isOnLaunch = onContinue != null
@@ -67,26 +68,29 @@ fun InstructionsScreen(
         ) {
             sectionTitle("Overview")
             body(
-                "Therapy Timer helps you time and track exercises and routines. In Basic Mode you run a single timed exercise. Custom mode lets you create and save custom exercise routines to help you keep track of your therapy session."
+                "Therapy Timer helps you time and track exercises and routines. Basic Mode and the Demo Routine in Custom mode are free. " +
+                "Unlock the full version to create and save your own routines, edit exercises, and backup or import routines.\n\n" +
+                "• Basic Mode — A single timed exercise; set duration on the main screen.\n" +
+                "• Custom Mode — Run a routine with multiple exercises and reps. Free users get the Demo Routine; full version adds more routines, editing, and backup/import."
             )
 
             sectionTitle("Basic Mode")
             body(
-                "• One exercise: set the duration (seconds) on the main screen.\n" +
-                "• Tap Start to begin the countdown.\n" +
+                "• Set the duration (seconds) on the main screen, then tap Begin Exercise to start the countdown.\n" +
                 "• When the timer finishes, a sound plays. Tap Next to start the next rep, or Reset to start over.\n" +
-                "• You can use voice commands in Basic mode too — turn on Voice Control on the main screen."
+                "• Voice commands work here too — turn on Voice Control on the main screen."
             )
 
             sectionTitle("Custom Mode")
             body(
-                "• Create and select routines in Settings. Each routine has exercises with duration and number of reps.\n" +
-                "• On the main screen, swipe left or right on the exercise chips to see all exercises. Tap a chip to jump to that exercise."
+                "• Choose a routine in Settings (free: Demo Routine only; full version: your own routines). Each routine has exercises with duration and number of reps.\n" +
+                "• On the main screen, swipe left or right on the exercise chips to see all exercises. Tap a chip to jump to that exercise. When you jump away and come back, your rep progress for each exercise is kept.\n" +
+                "• Use Reset entire routine (above the chips) to start the whole routine over from the first exercise."
             )
 
             sectionTitle("Buttons")
             body(
-                "• Begin Exercise / Next Rep — Start the timer or, after a rep completes, go to the next rep.\n" +
+                "• Start / Next Rep — Start the timer or, after a rep completes, go to the next rep.\n" +
                 "• Restart — Redo the current rep (same rep number).\n" +
                 "• Reset — Reset this exercise back to the first rep.\n" +
                 "• Done — Finish this exercise and go to the next. When the routine is complete, Exit closes the app."
@@ -100,8 +104,8 @@ fun InstructionsScreen(
                 "• Restart — Redo the current rep.\n" +
                 "• Reset — Reset this exercise.\n" +
                 "• Done — Finish this exercise and go to the next. When the routine is complete, Exit closes the app.\n\n" +
-                "When the app accepts a voice command, it plays a short confirmation beep so you don't have to look at the phone. You can turn up the Alarm volume for the beep and keep other volumes lower (Settings → Mute all sounds turns off every sound).\n\n" +
-                "Voice recognition is paused while you are in Settings."
+                "Pro tip: Speaking louder isn't as important as speaking clearly — pronunciation matters more than volume (e.g. the \"t\" in \"Next\" and \"Start\"). Tap \"Show voice commands\" on the main screen (when Voice Control is on) to see the list and tip there too.\n\n" +
+                "When the app accepts a voice command, it plays a short confirmation beep. You can turn up the Alarm volume for the beep (Settings → Mute all sounds turns off every sound). Voice recognition is paused while you are in Settings."
             )
 
             sectionTitle("Settings")
@@ -109,7 +113,9 @@ fun InstructionsScreen(
                 "• Mode — Switch between Basic and Custom.\n" +
                 "• Mute all sounds — Turn off all app sounds (confirmation beep, notification, count, and finished).\n" +
                 "• Notification sound — Choose the sound that plays when a rep or exercise finishes.\n" +
-                "• Custom mode — Select a routine, or create and edit routines (add exercises, set duration and reps).\n" +
+                "• How to use this app — Open this screen again anytime.\n" +
+                "• Custom mode — Routine list: free users see only the Demo Routine; full version can Edit, add New routine, and use Backup routine / Import routine.\n" +
+                "• Unlock full version — Shown when you're on the free version; unlock to create and edit routines, reorder exercises, and backup or import.\n" +
                 "• Tap Save all changes to apply and return to the timer. If you leave without saving, you’ll be asked to save or discard changes."
             )
 
@@ -119,6 +125,14 @@ fun InstructionsScreen(
             if (isOnLaunch) {
                 Spacer(modifier = Modifier.height(16.dp))
                 HorizontalDivider()
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "* You can view these instructions again anytime in \"Settings\".",
+                    fontSize = 14.sp,
+                    fontStyle = FontStyle.Italic,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()

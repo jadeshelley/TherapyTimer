@@ -19,23 +19,22 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.app.Activity
 import android.os.Build
 import android.speech.tts.Voice
+import com.example.therapytimer.billing.BillingManager
 import com.example.therapytimer.data.Exercise
 import com.example.therapytimer.data.ExerciseRoutine
 import com.example.therapytimer.data.NamedRoutine
 import com.example.therapytimer.util.PreferencesManager
 import com.example.therapytimer.viewmodel.TimerViewModel
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     viewModel: TimerViewModel,
     preferencesManager: PreferencesManager,
-    voiceLogManager: com.example.therapytimer.util.VoiceLogManager,
+    billingManager: BillingManager,
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -51,7 +50,25 @@ fun SettingsScreen(
     var showRoutineEdit by remember { mutableStateOf(false) }
     var editRoutineForNew by remember { mutableStateOf<NamedRoutine?>(null) }
     var showInstructions by remember { mutableStateOf(false) }
-    var showVoiceLogs by remember { mutableStateOf(false) }
+    var showPaywall by remember { mutableStateOf(false) }
+    var fullVersionUnlocked by remember { mutableStateOf(preferencesManager.getFullVersionUnlocked()) }
+    var billingReady by remember { mutableStateOf(false) }
+    var purchaseInProgress by remember { mutableStateOf(false) }
+    var restoreInProgress by remember { mutableStateOf(false) }
+    val priceString = remember(billingReady) { if (billingReady) billingManager.getPriceString() else null }
+    LaunchedEffect(showPaywall) {
+        if (showPaywall) {
+            billingManager.onPurchaseSuccess = {
+                fullVersionUnlocked = true
+                showPaywall = false
+                routines = preferencesManager.getSavedRoutines()
+                selectedRoutineId = preferencesManager.getCurrentRoutineId()
+            }
+            billingManager.startConnection { ready: Boolean ->
+                billingReady = ready
+            }
+        }
+    }
 
     // Snapshot of state when Settings was opened (for unsaved-changes detection)
     val initialMode = remember { mutableStateOf(if (isBasicMode) "basic" else "custom") }
@@ -116,12 +133,6 @@ fun SettingsScreen(
     } else if (showInstructions) {
         BackHandler { showInstructions = false }
         InstructionsScreen(onNavigateBack = { showInstructions = false })
-    } else if (showVoiceLogs) {
-        BackHandler { showVoiceLogs = false }
-        VoiceLogsScreen(
-            voiceLogManager = voiceLogManager,
-            onNavigateBack = { showVoiceLogs = false }
-        )
     } else {
     BackHandler {
         if (hasUnsavedChanges) showUnsavedDialog = true else onNavigateBack()
@@ -252,7 +263,12 @@ fun SettingsScreen(
                 contract = ActivityResultContracts.StartActivityForResult()
             ) { result ->
                 if (result.resultCode == android.app.Activity.RESULT_OK) {
-                    val uri = result.data?.getParcelableExtra<android.net.Uri>(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+                    val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        result.data?.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI, android.net.Uri::class.java)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        result.data?.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI) as android.net.Uri?
+                    }
                     if (uri != null) {
                         preferencesManager.setNotificationSoundUri(uri)
                         val ringtone = RingtoneManager.getRingtone(context, uri)
@@ -337,42 +353,10 @@ fun SettingsScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Voice recognition logs
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp)
-                    .clickable { showVoiceLogs = true }
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Voice recognition logs",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Text(
-                            text = "Review what the app heard by session",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Text("→", fontSize = 18.sp, color = MaterialTheme.colorScheme.primary)
-                }
-            }
-
             Spacer(modifier = Modifier.height(24.dp))
 
             if (selectedMode != "basic") {
-                // Custom mode: routine list only; Edit/New open separate screen
+                // Custom mode: routine list; free users see only Demo Routine and cannot Edit/Add/Import/Export
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -385,14 +369,23 @@ fun SettingsScreen(
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
-                    Button(
-                        onClick = {
-                            editRoutineForNew = selectedRoutineId?.let { id -> routines.find { it.id == id } }
-                            showRoutineEdit = true
-                        },
-                        enabled = selectedRoutineId != null
-                    ) {
-                        Text("Edit")
+                    if (fullVersionUnlocked) {
+                        Button(
+                            onClick = {
+                                editRoutineForNew = selectedRoutineId?.let { id -> routines.find { it.id == id } }
+                                showRoutineEdit = true
+                            },
+                            enabled = selectedRoutineId != null
+                        ) {
+                            Text("Edit")
+                        }
+                    } else {
+                        Button(
+                            onClick = { showPaywall = true },
+                            enabled = selectedRoutineId != null
+                        ) {
+                            Text("Edit")
+                        }
                     }
                 }
                 if (routines.isEmpty()) {
@@ -432,17 +425,27 @@ fun SettingsScreen(
                         }
                     }
                 }
-                Button(
-                    onClick = {
-                        editRoutineForNew = null
-                        showRoutineEdit = true
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("+ New routine")
+                if (fullVersionUnlocked) {
+                    Button(
+                        onClick = {
+                            editRoutineForNew = null
+                            showRoutineEdit = true
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("+ New routine")
+                    }
+                } else {
+                    Button(
+                        onClick = { showPaywall = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("+ New routine (Unlock full version)")
+                    }
                 }
 
-                // Backup / Import (same format as app storage)
+                // Backup / Import — only when full version unlocked
+                if (fullVersionUnlocked) {
                 val selectedRoutine = selectedRoutineId?.let { id -> routines.find { it.id == id } }
                 val backupLauncher = rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.CreateDocument("application/json")
@@ -510,6 +513,131 @@ fun SettingsScreen(
                         Text("Import routine", fontSize = 14.sp)
                     }
                 }
+                }
+
+                // Unlock full version (show when free)
+                if (!fullVersionUnlocked) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 16.dp)
+                            .clickable { showPaywall = true },
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Unlock full version",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = "Add and edit routines, import & export",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Text("→", fontSize = 18.sp, color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
+            }
+
+            if (showPaywall) {
+                AlertDialog(
+                    onDismissRequest = { showPaywall = false },
+                    title = { Text("Unlock full version") },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text(
+                                "Get full access to custom mode: add and edit routines, reorder exercises, backup and import routines. " +
+                                "Basic mode and the demo routine remain free."
+                            )
+                            priceString?.let { price ->
+                                Text(
+                                    text = price,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 18.sp
+                                )
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(
+                                onClick = {
+                                    val activity = context as? Activity
+                                    if (activity != null && billingReady) {
+                                        purchaseInProgress = true
+                                        billingManager.launchPurchase(activity) { _: Boolean ->
+                                            purchaseInProgress = false
+                                        }
+                                    } else if (activity == null) {
+                                        Toast.makeText(context, "Unable to start purchase", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        Toast.makeText(context, "Loading… Try again in a moment.", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                enabled = billingReady && !purchaseInProgress
+                            ) {
+                                Text(if (purchaseInProgress) "Opening…" else (priceString ?: "Unlock"))
+                            }
+                            if (!billingReady) {
+                                Text(
+                                    text = "Purchases are available when the app is installed from the Play Store.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                TextButton(
+                                    onClick = {
+                                        preferencesManager.setFullVersionUnlocked(true)
+                                        fullVersionUnlocked = true
+                                        showPaywall = false
+                                        routines = preferencesManager.getSavedRoutines()
+                                        selectedRoutineId = preferencesManager.getCurrentRoutineId()
+                                        Toast.makeText(context, "Unlocked for testing", Toast.LENGTH_SHORT).show()
+                                    }
+                                ) {
+                                    Text("Unlock for testing")
+                                }
+                            }
+                            TextButton(
+                                onClick = {
+                                    restoreInProgress = true
+                                    billingManager.restorePurchases { restored: Boolean ->
+                                        (context as? Activity)?.runOnUiThread {
+                                            restoreInProgress = false
+                                            if (restored) {
+                                                fullVersionUnlocked = true
+                                                showPaywall = false
+                                                routines = preferencesManager.getSavedRoutines()
+                                                selectedRoutineId = preferencesManager.getCurrentRoutineId()
+                                                Toast.makeText(context, "Purchase restored", Toast.LENGTH_SHORT).show()
+                                            } else {
+                                                Toast.makeText(context, "No previous purchase found", Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    }
+                                }
+                            ) {
+                                Text(if (restoreInProgress) "Checking…" else "Restore purchases")
+                            }
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showPaywall = false }) {
+                            Text("Cancel")
+                        }
+                    }
+                )
             }
 
             if (showUnsavedDialog) {
@@ -559,162 +687,5 @@ fun SettingsScreen(
             }
         }
     }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun VoiceLogsScreen(
-    voiceLogManager: com.example.therapytimer.util.VoiceLogManager,
-    onNavigateBack: () -> Unit
-) {
-    var refreshKey by remember { mutableStateOf(0) }
-    val logs = remember(refreshKey) {
-        voiceLogManager.readAllChunks().sortedByDescending { it.startedAt }
-    }
-    var showClearConfirm by remember { mutableStateOf(false) }
-    val dateFormat = remember {
-        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-    }
-
-    if (showClearConfirm) {
-        AlertDialog(
-            onDismissRequest = { showClearConfirm = false },
-            title = { Text("Clear voice logs?") },
-            text = { Text("All logged phrases will be deleted. This cannot be undone.") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        voiceLogManager.clearLog()
-                        refreshKey++
-                        showClearConfirm = false
-                    }
-                ) {
-                    Text("Clear", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showClearConfirm = false }) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
-
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Voice recognition logs") },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Text("←", fontSize = 24.sp)
-                    }
-                },
-                actions = {
-                    if (logs.isNotEmpty()) {
-                        TextButton(onClick = { showClearConfirm = true }) {
-                            Text("Clear log", color = MaterialTheme.colorScheme.error)
-                        }
-                    }
-                }
-            )
-        }
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState())
-        ) {
-            if (logs.isEmpty()) {
-                Text(
-                    text = "No voice logs yet. Use voice commands during a routine to populate this list.",
-                    fontSize = 14.sp
-                )
-            } else {
-                logs.forEach { chunk ->
-                    val start = if (chunk.startedAt > 0) dateFormat.format(Date(chunk.startedAt)) else "?"
-                    val end = if (chunk.endedAt > 0) dateFormat.format(Date(chunk.endedAt)) else "?"
-                    val modeLabel = if (chunk.isBasicMode) "Basic mode" else "Custom mode"
-                    val triggerLabel = when (chunk.trigger) {
-                        "routine_complete" -> "Routine completed"
-                        "settings_opened" -> "Left timer"
-                        "session_switch" -> "New session"
-                        else -> chunk.trigger
-                    }
-                    val routineLabel = chunk.routineId?.let { "Routine id: $it" } ?: "No routine id"
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 12.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Text(
-                                text = "$modeLabel • $triggerLabel",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Text(
-                                text = routineLabel,
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = "From $start to $end",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            if (chunk.texts.isNotEmpty()) {
-                                Text(
-                                    text = "Heard:",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    modifier = Modifier.padding(top = 4.dp)
-                                )
-                                chunk.texts.forEach { t ->
-                                    Text(
-                                        text = "• $t",
-                                        fontSize = 13.sp
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-
-@Composable
-private fun infoCard(title: String, content: String) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer
-        )
-    ) {
-        Column(
-            modifier = Modifier.padding(12.dp)
-        ) {
-            Text(
-                text = title,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 4.dp)
-            )
-            Text(
-                text = content,
-                fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.onSecondaryContainer
-            )
-        }
     }
 }

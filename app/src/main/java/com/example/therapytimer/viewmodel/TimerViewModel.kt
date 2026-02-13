@@ -35,6 +35,9 @@ class TimerViewModel : ViewModel() {
     private val _completedExerciseIndices = MutableStateFlow<Set<Int>>(emptySet())
     val completedExerciseIndices: StateFlow<Set<Int>> = _completedExerciseIndices.asStateFlow()
 
+    /** In custom mode: per-exercise rep count so when user jumps to another exercise and back, we restore where they were. */
+    private val repCountByExerciseIndex = mutableMapOf<Int, Int>()
+
     private var countdownJob: Job? = null
     /** Called when a count completes; parameter is the count that just completed (for TTS). */
     var onTimerComplete: ((countJustCompleted: Int) -> Unit)? = null
@@ -48,7 +51,17 @@ class TimerViewModel : ViewModel() {
     var onStartOrNextConfirm: (() -> Unit)? = null
 
     fun setBasicMode(isBasic: Boolean) {
+        val wasBasic = _isBasicMode.value
         _isBasicMode.value = isBasic
+        // When switching mode, reset progress so the new mode starts from a clean state.
+        if (wasBasic != isBasic) {
+            countdownJob?.cancel()
+            _timerState.value = TimerState.Idle
+            _currentExerciseIndex.value = 0
+            _currentCount.value = 0
+            _completedExerciseIndices.value = emptySet()
+            repCountByExerciseIndex.clear()
+        }
     }
 
     fun setBasicModeDuration(seconds: Int) {
@@ -67,6 +80,7 @@ class TimerViewModel : ViewModel() {
             _currentExerciseIndex.value = 0
             _currentCount.value = 0
             _completedExerciseIndices.value = emptySet()
+            repCountByExerciseIndex.clear()
         }
     }
 
@@ -99,11 +113,12 @@ class TimerViewModel : ViewModel() {
                 if (routine != null && idx < routine.exercises.size) {
                     val needed = (routine.exercises[idx].repeats).coerceAtLeast(1)
                     if (_currentCount.value >= needed) {
+                        repCountByExerciseIndex[idx] = _currentCount.value
                         _completedExerciseIndices.value = _completedExerciseIndices.value + idx
                         val next = getFirstUncompletedIndex()
                         if (next != null) {
                             _currentExerciseIndex.value = next
-                            _currentCount.value = 0
+                            _currentCount.value = repCountByExerciseIndex.getOrDefault(next, 0)
                         }
                     }
                 }
@@ -139,11 +154,12 @@ class TimerViewModel : ViewModel() {
             val routine = _exerciseRoutine.value
             val idx = _currentExerciseIndex.value
             if (routine != null && idx < routine.exercises.size) {
+                repCountByExerciseIndex[idx] = _currentCount.value
                 _completedExerciseIndices.value = _completedExerciseIndices.value + idx
                 val next = getFirstUncompletedIndex()
                 if (next != null) {
                     _currentExerciseIndex.value = next
-                    _currentCount.value = 0
+                    _currentCount.value = repCountByExerciseIndex.getOrDefault(next, 0)
                 } else {
                     // Last exercise just marked done; routine is complete (user tapped/said Done)
                     _currentCount.value = 0
@@ -191,11 +207,12 @@ class TimerViewModel : ViewModel() {
                 if (routine != null && idx < routine.exercises.size) {
                     val needed = (routine.exercises[idx].repeats).coerceAtLeast(1)
                     if (_currentCount.value >= needed) {
+                        repCountByExerciseIndex[idx] = _currentCount.value
                         _completedExerciseIndices.value = _completedExerciseIndices.value + idx
                         val next = getFirstUncompletedIndex()
                         if (next != null) {
                             _currentExerciseIndex.value = next
-                            _currentCount.value = 0
+                            _currentCount.value = repCountByExerciseIndex.getOrDefault(next, 0)
                         }
                     }
                 }
@@ -208,46 +225,27 @@ class TimerViewModel : ViewModel() {
         }
     }
 
-    /** Reorder exercises: move item at fromIndex to toIndex. Remaps completed indices and current index. Caller should persist routine after. */
-    fun reorderExercises(fromIndex: Int, toIndex: Int) {
-        if (_isBasicMode.value) return
-        val routine = _exerciseRoutine.value ?: return
-        val list = routine.exercises.toMutableList()
-        if (fromIndex !in list.indices || toIndex !in list.indices || fromIndex == toIndex) return
-        val item = list.removeAt(fromIndex)
-        list.add(toIndex, item)
-        _exerciseRoutine.value = ExerciseRoutine(list)
-
-        // Remap completed indices for the move
-        fun remap(i: Int): Int = when {
-            i == fromIndex -> toIndex
-            fromIndex < toIndex && i in (fromIndex + 1)..toIndex -> i - 1
-            fromIndex > toIndex && i in toIndex..<fromIndex -> i + 1
-            else -> i
-        }
-        _completedExerciseIndices.value = _completedExerciseIndices.value.map { remap(it) }.toSet()
-        _currentExerciseIndex.value = remap(_currentExerciseIndex.value)
-    }
-
     /** Reset the entire routine: clear all progress, go to first exercise, idle. Custom mode only. */
     fun resetRoutine() {
         if (_isBasicMode.value) return
         countdownJob?.cancel()
         onRunStarted?.invoke()
         _completedExerciseIndices.value = emptySet()
+        repCountByExerciseIndex.clear()
         _currentExerciseIndex.value = 0
         _currentCount.value = 0
         _timerState.value = TimerState.Idle
     }
 
-    /** Jump to a specific exercise (tap on chip). Starts that exercise from rep 0, idle so user can start. */
+    /** Jump to a specific exercise (tap on chip). Restores that exercise's rep progress if they had been there before. */
     fun goToExercise(index: Int) {
         if (_isBasicMode.value) return
         val routine = _exerciseRoutine.value ?: return
         countdownJob?.cancel()
         val safeIndex = index.coerceIn(0, (routine.exercises.size - 1).coerceAtLeast(0))
+        repCountByExerciseIndex[_currentExerciseIndex.value] = _currentCount.value
         _currentExerciseIndex.value = safeIndex
-        _currentCount.value = 0
+        _currentCount.value = repCountByExerciseIndex.getOrDefault(safeIndex, 0)
         _timerState.value = TimerState.Idle
     }
 
@@ -278,16 +276,6 @@ class TimerViewModel : ViewModel() {
         if (_isBasicMode.value) return false
         val routine = _exerciseRoutine.value ?: return false
         return _completedExerciseIndices.value.size >= routine.exercises.size
-    }
-
-    fun moveToNextExercise() {
-        if (!_isBasicMode.value) {
-            val routine = _exerciseRoutine.value
-            if (routine != null && _currentExerciseIndex.value < routine.exercises.size - 1) {
-                _currentExerciseIndex.value++
-                _currentCount.value = 0
-            }
-        }
     }
 
     override fun onCleared() {

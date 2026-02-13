@@ -15,6 +15,7 @@
 .kotlin/
 .cxx
 local.properties
+keystore.properties
 
 # Vosk 16 KB build (clone + Linux NDK cache)
 .vosk-api-build

@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -376,7 +377,7 @@ fun TimerScreen(
                                 verticalArrangement = Arrangement.Center
                             ) {
                                 Text("Exit", fontSize = 18.sp)
-                                Text("Or choose an exercise above to start again", fontSize = 12.sp)
+                                Text("Or reset the routine to start again", fontSize = 12.sp)
                             }
                         }
                     } else {
@@ -529,6 +530,12 @@ fun TimerScreen(
                                         fontSize = 14.sp
                                     )
                                 }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "Speaking louder isn't as important as speaking clearly — pronunciation matters more than volume (e.g. the \"t\" in \"Next\" and \"Start\").",
+                                    fontSize = 14.sp,
+                                    fontStyle = FontStyle.Italic
+                                )
                             }
                         },
                         confirmButton = {
