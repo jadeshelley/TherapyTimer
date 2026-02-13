@@ -22,16 +22,62 @@ fun RoutineEditScreen(
     onDelete: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    val initialName = remember(routine?.id) { routine?.name ?: "New Routine" }
+    val initialExercises = remember(routine?.id) {
+        routine?.exercises ?: listOf(Exercise("Exercise 1", 0, 0))
+    }
     var routineName by remember(routine?.id) {
-        mutableStateOf(routine?.name ?: "New Routine")
+        mutableStateOf(initialName)
     }
     var exercises by remember(routine?.id) {
-        mutableStateOf(
-            routine?.exercises ?: listOf(Exercise("Exercise 1", 0, 0))
-        )
+        mutableStateOf(initialExercises)
+    }
+    val hasUnsavedChanges = routineName != initialName || exercises != initialExercises
+    var showLeaveConfirmDialog by remember { mutableStateOf(false) }
+
+    fun performSaveAndBack() {
+        if (exercises.isNotEmpty()) {
+            val validExercises = exercises.map { ex ->
+                ex.copy(
+                    durationSeconds = if (ex.durationSeconds < 1) 1 else ex.durationSeconds,
+                    repeats = if (ex.repeats < 1) 1 else ex.repeats
+                )
+            }
+            val name = routineName.ifBlank { "Routine" }
+            val id = routine?.id ?: "r_${System.currentTimeMillis()}"
+            onSave(NamedRoutine(id, name, validExercises))
+        }
+        showLeaveConfirmDialog = false
+        onBack()
     }
 
-    BackHandler(onBack = onBack)
+    BackHandler(enabled = showLeaveConfirmDialog) {
+        showLeaveConfirmDialog = false
+    }
+    BackHandler(enabled = !showLeaveConfirmDialog) {
+        if (hasUnsavedChanges) showLeaveConfirmDialog = true else onBack()
+    }
+
+    if (showLeaveConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showLeaveConfirmDialog = false },
+            title = { Text("Save changes?") },
+            text = { Text("You have unsaved changes. Do you want to save before leaving?") },
+            confirmButton = {
+                TextButton(onClick = { performSaveAndBack() }) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showLeaveConfirmDialog = false
+                    onBack()
+                }) {
+                    Text("Don't save")
+                }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -44,7 +90,9 @@ fun RoutineEditScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = {
+                        if (hasUnsavedChanges) showLeaveConfirmDialog = true else onBack()
+                    }) {
                         Text("←", fontSize = 24.sp)
                     }
                 }
