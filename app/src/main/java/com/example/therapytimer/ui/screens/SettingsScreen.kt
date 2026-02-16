@@ -440,7 +440,7 @@ fun SettingsScreen(
                         onClick = { showPaywall = true },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("+ New routine (Unlock full version)")
+                        Text("+ New routine (Unlock Pro)")
                     }
                 }
 
@@ -515,7 +515,7 @@ fun SettingsScreen(
                 }
                 }
 
-                // Unlock full version (show when free)
+                // Unlock Pro (show when free)
                 if (!fullVersionUnlocked) {
                     Card(
                         modifier = Modifier
@@ -535,7 +535,7 @@ fun SettingsScreen(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Unlock full version",
+                                    text = "Unlock Pro",
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
@@ -554,11 +554,11 @@ fun SettingsScreen(
             if (showPaywall) {
                 AlertDialog(
                     onDismissRequest = { showPaywall = false },
-                    title = { Text("Unlock full version") },
+                    title = { Text("Unlock Pro") },
                     text = {
                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             Text(
-                                "Get full access to custom mode: add and edit routines, reorder exercises, backup and import routines. " +
+                                "Get Pro: add and edit routines, reorder exercises, backup and import. " +
                                 "Basic mode and the demo routine remain free."
                             )
                             priceString?.let { price ->
@@ -588,7 +588,7 @@ fun SettingsScreen(
                                 },
                                 enabled = billingReady && !purchaseInProgress
                             ) {
-                                Text(if (purchaseInProgress) "Opening…" else (priceString ?: "Unlock"))
+                                Text(if (purchaseInProgress) "Opening…" else (priceString ?: "Unlock Pro"))
                             }
                             if (!billingReady) {
                                 Text(

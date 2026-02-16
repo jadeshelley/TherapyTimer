@@ -39,8 +39,8 @@ class TimerViewModel : ViewModel() {
     private val repCountByExerciseIndex = mutableMapOf<Int, Int>()
 
     private var countdownJob: Job? = null
-    /** Called when a count completes; parameter is the count that just completed (for TTS). */
-    var onTimerComplete: ((countJustCompleted: Int) -> Unit)? = null
+    /** Called when a count completes. Parameters: count that just completed (for TTS), and whether that was the last rep of the current exercise (for exercise-end sound). */
+    var onTimerComplete: ((countJustCompleted: Int, isLastRepOfExercise: Boolean) -> Unit)? = null
     /** Called when there is 1 second left in the countdown (e.g. to stop voice listening before beep/TTS). */
     var onTimerOneSecondLeft: (() -> Unit)? = null
     /** Called when the entire routine is completed. fromTimerCompletion = true when the timer ran the last rep (sound will play after count); false when user tapped/said Done on last exercise (play sound now). */
@@ -200,12 +200,14 @@ class TimerViewModel : ViewModel() {
             // Increment count when timer completes
             _currentCount.value++
             val countJustCompleted = _currentCount.value
+            var isLastRepOfExercise = false
             // In custom mode, mark current done and go to first uncompleted when reps for current are done
             if (!_isBasicMode.value) {
                 val routine = _exerciseRoutine.value
                 val idx = _currentExerciseIndex.value
                 if (routine != null && idx < routine.exercises.size) {
                     val needed = (routine.exercises[idx].repeats).coerceAtLeast(1)
+                    isLastRepOfExercise = countJustCompleted >= needed
                     if (_currentCount.value >= needed) {
                         repCountByExerciseIndex[idx] = _currentCount.value
                         _completedExerciseIndices.value = _completedExerciseIndices.value + idx
@@ -218,7 +220,7 @@ class TimerViewModel : ViewModel() {
                 }
             }
             _timerState.value = TimerState.Completed(_currentCount.value)
-            onTimerComplete?.invoke(countJustCompleted)
+            onTimerComplete?.invoke(countJustCompleted, isLastRepOfExercise)
             if (isRoutineComplete()) {
                 onRoutineComplete?.invoke(true)
             }

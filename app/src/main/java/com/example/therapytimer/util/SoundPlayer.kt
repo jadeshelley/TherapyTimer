@@ -101,6 +101,35 @@ class SoundPlayer(private val context: Context, private val preferencesManager: 
     }
 
     /**
+     * Plays the exercise-end notification sound (right after the count when it's the last rep of an exercise).
+     * Uses assets/exercise_end.mp3. Respects mute.
+     */
+    fun playExerciseEndSound(onComplete: (() -> Unit)? = null) {
+        if (preferencesManager.getMuteAllSounds()) {
+            onComplete?.invoke()
+            return
+        }
+        try {
+            mediaPlayer?.release()
+            mediaPlayer = MediaPlayer()
+            context.assets.openFd("exercise_end.mp3").use { afd ->
+                mediaPlayer?.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+            }
+            mediaPlayer?.prepare()
+            mediaPlayer?.start()
+            mediaPlayer?.setOnCompletionListener {
+                it.release()
+                mediaPlayer = null
+                onComplete?.invoke()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            mediaPlayer = null
+            onComplete?.invoke()
+        }
+    }
+
+    /**
      * Routine complete: plays Finished5.mp3 first, then a random other finished clip (Finished1, Finished2, etc.).
      */
     fun playRandomFinished(onComplete: (() -> Unit)? = null) {

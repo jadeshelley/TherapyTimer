@@ -69,9 +69,9 @@ fun InstructionsScreen(
             sectionTitle("Overview")
             body(
                 "Therapy Timer helps you time and track exercises and routines. Basic Mode and the Demo Routine in Custom mode are free. " +
-                "Unlock the full version to create and save your own routines, edit exercises, and backup or import routines.\n\n" +
+                "Unlock Pro to create and save your own routines, edit exercises, and backup or import routines.\n\n" +
                 "• Basic Mode — A single timed exercise; set duration on the main screen.\n" +
-                "• Custom Mode — Run a routine with multiple exercises and reps. Free users get the Demo Routine; full version adds more routines, editing, and backup/import."
+                "• Custom Mode — Run a routine with multiple exercises and reps. Free users get the Demo Routine; Pro adds more routines, editing, and backup/import."
             )
 
             sectionTitle("Basic Mode")
@@ -83,7 +83,7 @@ fun InstructionsScreen(
 
             sectionTitle("Custom Mode")
             body(
-                "• Choose a routine in Settings (free: Demo Routine only; full version: your own routines). Each routine has exercises with duration and number of reps.\n" +
+                "• Choose a routine in Settings (free: Demo Routine only; Pro: your own routines). Each routine has exercises with duration and number of reps.\n" +
                 "• On the main screen, swipe left or right on the exercise chips to see all exercises. Tap a chip to jump to that exercise. When you jump away and come back, your rep progress for each exercise is kept.\n" +
                 "• Use Reset entire routine (above the chips) to start the whole routine over from the first exercise."
             )
@@ -114,8 +114,8 @@ fun InstructionsScreen(
                 "• Mute all sounds — Turn off all app sounds (confirmation beep, notification, count, and finished).\n" +
                 "• Notification sound — Choose the sound that plays when a rep or exercise finishes.\n" +
                 "• How to use this app — Open this screen again anytime.\n" +
-                "• Custom mode — Routine list: free users see only the Demo Routine; full version can Edit, add New routine, and use Backup routine / Import routine.\n" +
-                "• Unlock full version — Shown when you're on the free version; unlock to create and edit routines, reorder exercises, and backup or import.\n" +
+                "• Custom mode — Routine list: free users see only the Demo Routine; Pro can Edit, add New routine, and use Backup routine / Import routine.\n" +
+                "• Unlock Pro — Shown when you're on the free version; unlock to create and edit routines, reorder exercises, and backup or import.\n" +
                 "• Tap Save all changes to apply and return to the timer. If you leave without saving, you’ll be asked to save or discard changes."
             )
 

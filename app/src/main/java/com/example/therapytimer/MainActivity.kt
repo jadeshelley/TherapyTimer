@@ -101,8 +101,8 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Set up timer completion: play notification, then count (Revoicer 1–20) after short delay. Restart listening right away so user can speak soon.
-        viewModel.onTimerComplete = { countJustCompleted ->
+        // Set up timer completion: play notification, then count (Revoicer 1–20) after short delay. If last rep of exercise, play exercise-end sound after count. Restart listening right away so user can speak soon.
+        viewModel.onTimerComplete = { countJustCompleted, isLastRepOfExercise ->
             runOnUiThread {
                 if (isVoiceControlEnabled) voiceRecognitionManager.startListening()
             }
@@ -110,10 +110,20 @@ class MainActivity : ComponentActivity() {
                 soundPlayer?.playNotificationSound()
                 Handler(Looper.getMainLooper()).postDelayed({
                     soundPlayer?.playCountNumber(countJustCompleted) {
-                        if (pendingPlayFinished && !routineCompleteSoundPlayed) {
-                            pendingPlayFinished = false
-                            routineCompleteSoundPlayed = true
-                            soundPlayer?.playRandomFinished()
+                        if (isLastRepOfExercise) {
+                            soundPlayer?.playExerciseEndSound {
+                                if (pendingPlayFinished && !routineCompleteSoundPlayed) {
+                                    pendingPlayFinished = false
+                                    routineCompleteSoundPlayed = true
+                                    soundPlayer?.playRandomFinished()
+                                }
+                            }
+                        } else {
+                            if (pendingPlayFinished && !routineCompleteSoundPlayed) {
+                                pendingPlayFinished = false
+                                routineCompleteSoundPlayed = true
+                                soundPlayer?.playRandomFinished()
+                            }
                         }
                     }
                 }, notificationToCountDelayMs)
