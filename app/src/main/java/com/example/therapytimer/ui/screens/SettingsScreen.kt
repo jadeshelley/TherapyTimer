@@ -596,18 +596,6 @@ fun SettingsScreen(
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                                TextButton(
-                                    onClick = {
-                                        preferencesManager.setFullVersionUnlocked(true)
-                                        fullVersionUnlocked = true
-                                        showPaywall = false
-                                        routines = preferencesManager.getSavedRoutines()
-                                        selectedRoutineId = preferencesManager.getCurrentRoutineId()
-                                        Toast.makeText(context, "Unlocked for testing", Toast.LENGTH_SHORT).show()
-                                    }
-                                ) {
-                                    Text("Unlock for testing")
-                                }
                             }
                             TextButton(
                                 onClick = {
