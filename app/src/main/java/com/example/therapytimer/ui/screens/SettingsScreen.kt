@@ -442,7 +442,8 @@ fun SettingsScreen(
             ) {
                 Text(
                     text = "Mute all sounds",
-                    fontSize = 16.sp
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold
                 )
                 Switch(
                     checked = muteAllSounds,
@@ -456,8 +457,14 @@ fun SettingsScreen(
             // Voice command matching
             var voiceMatchStrictness by remember { mutableStateOf(preferencesManager.getVoiceMatchStrictness()) }
             Text(
-                text = "Voice Matching (Set this higher if you are having false \"Voice Command\" starts).",
-                fontSize = 16.sp,
+                text = "Voice Matching",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 4.dp)
+            )
+            Text(
+                text = "(Set this higher if you are having false \"Voice Command\" starts.)",
+                fontSize = 14.sp,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
             Row(
@@ -484,8 +491,9 @@ fun SettingsScreen(
             var themeMode by remember { mutableStateOf(preferencesManager.getThemeMode()) }
             Text(
                 text = "App theme",
-                fontSize = 16.sp,
-                modifier = Modifier.padding(bottom = 8.dp)
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 16.dp)
             )
             Row(
                 modifier = Modifier

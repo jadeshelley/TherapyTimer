@@ -68,30 +68,33 @@ fun InstructionsScreen(
         ) {
             sectionTitle("Overview")
             body(
-                "Therapy Timer helps you time and track exercises and routines. Basic Mode and the Demo Routine in Custom mode are free. " +
-                "Unlock \"Pro\" to create and save your own routines, edit exercises, and backup or import routines.\n\n" +
-                "• Basic Mode — A single timed exercise; set duration on the main screen.\n" +
-                "• Custom Mode — Run a routine with multiple exercises and reps. Free users get the Demo Routine; Pro adds more routines, editing, and backup/import."
+                "Therapy Timer helps you time and track exercises and routines. Basic mode is free. Custom mode in free version lets you demo a routine.\n\n" +
+                "Pro Version features the ability to create and edit your own custom routines. This lets you keep track of your own personal workout and enjoy it hands free!\n\n" +
+                "• Set Basic or Custom mode in the settings screen."
             )
 
-            sectionTitle("Basic Mode")
+            sectionTitle("Basic Mode (Single Exercise)")
             body(
-                "• Set the duration (seconds) on the main screen, then tap Start to begin the countdown.\n" +
-                "• When the timer finishes, a sound plays and the rep count is heard. Tap Next to start the next rep, or Reset to start over.\n" +
-                "• Voice commands work here too — turn on Voice Control on the main screen."
+                "• Set the duration (seconds) on the main screen & Say \"Next\" or \"Start\" (or tap Start) to begin the countdown.\n" +
+                "• When the timer finishes, a sound plays and the rep count is heard. Say \"Next\" to start the next rep, or Reset to start over.\n" +
+                "• Voice commands only work when \"Voice Control\" is turned on — Button on main screen."
             )
 
-            sectionTitle("Custom Mode")
+            sectionTitle("Custom Mode (Multiple Exercise Routine)")
             body(
-                "• Choose a routine in Settings (free: Demo Routine only; Pro: your own routines). Each routine has exercises with duration and number of reps.\n" +
-                "• On the main screen, swipe left or right on the exercise chips to see all exercises. Tap a chip to jump to that exercise. When you jump away and come back, your rep progress for each exercise is kept.\n" +
+                "• Choose a routine in the settings screen. Each routine can have multiple exercises with different durations and rep counts. Edit to change or add to the routine.\n" +
+                "• You can create and edit as many routines as you want in \"Pro\". Demo routine is not editable in free version.\n" +
+                "• Save then takes you to the main screen to begin using your chosen routine.\n" +
+                "• On the main screen, swipe left or right on the exercise chips to see all exercises. You may tap a chip to jump to that exercise and perform it out of order.\n" +
+                "• Start the first exercise by saying (voice control on) or tapping \"Start\".\n" +
+                "• Routine advances to next exercise when all reps are completed, or user presses \"Finish\".\n" +
                 "• Use Reset entire routine (above the chips) to start the whole routine over from the first exercise."
             )
 
             sectionTitle("Buttons")
             body(
                 "• Start / Next Rep — Start the timer or, after a rep completes, go to the next rep.\n" +
-                "• Restart — Redo the current rep (same rep number).\n" +
+                "• Restart — Restart the current rep (same rep number).\n" +
                 "• Reset — Reset this exercise back to the first rep.\n" +
                 "• Finish — Finish this exercise and go to the next. When the routine is complete, Exit closes the app."
             )
@@ -101,26 +104,13 @@ fun InstructionsScreen(
                 "Voice commands work in both Basic and Custom mode. With Voice Control on (toggle on the main screen), you can say:\n" +
                 "• Start — Start the timer or advance to the next rep.\n" +
                 "• Next — Also start the timer or advance to the next rep.\n" +
-                "• Restart — Redo the current rep.\n" +
+                "• Restart — Restart the current rep.\n" +
                 "• Reset — Reset this exercise.\n" +
-                "• Finish — Finish this exercise and go to the next. When the routine is complete, Exit closes the app.\n\n" +
-                "Voice matching (Settings): The app can match Voice Commands strictly or more loosely. In Settings, use \"Voice Matching\" to choose Strict, Medium, or Relaxed. Strict accepts only clearly spoken words (This is helpful when the environment is noisy). Medium and Relaxed allow small mishearings. If the timer keeps starting when you didn't say start or next, set Voice Matching to a stricter setting to reduce false triggers.\n\n" +
-                "Pro tip: Speaking louder isn't as important as speaking clearly — pronunciation matters more than volume (e.g. the \"t\" in \"Next\" and \"Start\").\n\n" +
-                "When the app accepts a voice command, it plays a short confirmation beep.\n\n" +
+                "• Finish — Finish this exercise and go to the next.\n\n" +
+                "Voice matching (Settings): The app can match Voice Commands strictly or more loosely. In Settings, choose Strict, Medium, or Relaxed. Strict accepts only clearly spoken words (This is helpful when the environment is noisy). Medium and Relaxed allow small mishearings. If the timer keeps starting when you didn't say start or next, set Voice Matching to a stricter setting to reduce false triggers.\n\n" +
+                "Pro tip: Speaking clearly is important — pronunciation matters more than volume (e.g. the \"t\" in \"Next\" and \"Start\").\n\n" +
                 "Settings → \"Mute all sounds\" - turns off all sounds.\n\n" +
                 "Voice recognition is paused while you are in Settings."
-            )
-
-            sectionTitle("Settings")
-            body(
-                "• Mode — Switch between Basic and Custom.\n" +
-                "• Mute all sounds — Turn off all app sounds (confirmation beep, notification, count, and finished).\n" +
-                "• Notification sound — Choose the sound that plays when a rep or exercise finishes.\n" +
-                "• Voice Matching — Use a stricter setting if you get false starts from other words.\n" +
-                "• How to use this app — Open this screen again anytime.\n" +
-                "• Custom mode — Routine list: free users see only the Demo Routine; Pro can Edit, add New routine, and use Backup routine / Import routine.\n" +
-                "• Unlock \"Pro\" — Shown when you're on the free version; unlock to create and edit routines, reorder exercises, and backup or import.\n" +
-                "• Tap Save all changes to apply and return to the timer. If you leave without saving, you’ll be asked to save or discard changes."
             )
 
             Spacer(modifier = Modifier.height(24.dp))
