@@ -93,7 +93,7 @@ fun TimerScreen(
                 }
             }
 
-            // Routine progress list (custom mode only) – tap a chip to jump to that exercise
+            // Routine progress list (custom mode only) – tap an exercise to select it
             if (!isBasicMode && exerciseRoutine != null) {
                 val list = exerciseRoutine!!.exercises
                 val listState = rememberLazyListState()
@@ -194,7 +194,7 @@ fun TimerScreen(
                 }
 
                 Text(
-                    text = "Tap a chip to go to that exercise.",
+                    text = "Tap an exercise to select.",
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,

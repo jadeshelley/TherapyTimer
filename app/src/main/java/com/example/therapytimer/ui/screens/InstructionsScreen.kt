@@ -85,10 +85,10 @@ fun InstructionsScreen(
                 "• Choose a routine in the settings screen. Each routine can have multiple exercises with different durations and rep counts. Edit to change or add to the routine.\n" +
                 "• You can create and edit as many routines as you want in \"Pro\". Demo routine is not editable in free version.\n" +
                 "• Save then takes you to the main screen to begin using your chosen routine.\n" +
-                "• On the main screen, swipe left or right on the exercise chips to see all exercises. You may tap a chip to jump to that exercise and perform it out of order.\n" +
+                "• On the main screen, swipe left or right to see all exercises. Tap an exercise to select it; you can perform exercises out of order.\n" +
                 "• Start the first exercise by saying (voice control on) or tapping \"Start\".\n" +
                 "• Routine advances to next exercise when all reps are completed, or user presses \"Finish\".\n" +
-                "• Use Reset entire routine (above the chips) to start the whole routine over from the first exercise."
+                "• Use Reset entire routine (above the exercise list) to start the whole routine over from the first exercise."
             )
 
             sectionTitle("Buttons")

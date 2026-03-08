@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -100,8 +101,11 @@ fun CustomSplashScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(modifier = Modifier.height(32.dp))
-                        Button(onClick = onComplete) {
-                            Text("Begin")
+                        Button(
+                            onClick = onComplete,
+                            modifier = Modifier.heightIn(min = 56.dp)
+                        ) {
+                            Text("Begin", fontSize = 28.sp)
                         }
                     }
                 }
