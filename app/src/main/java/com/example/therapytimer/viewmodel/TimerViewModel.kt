@@ -43,8 +43,10 @@ class TimerViewModel : ViewModel() {
     var onTimerComplete: ((countJustCompleted: Int, isLastRepOfExercise: Boolean) -> Unit)? = null
     /** Called when there is 1 second left in the countdown (e.g. to stop voice listening before beep/TTS). */
     var onTimerOneSecondLeft: (() -> Unit)? = null
-    /** Called when the entire routine is completed. fromTimerCompletion = true when the timer ran the last rep (sound will play after count); false when user tapped/said Done on last exercise (play sound now). */
+    /** Called when the entire routine is completed. fromTimerCompletion = true when the timer ran the last rep (sound will play after count); false when user tapped/said Finish on last exercise (play sound now). */
     var onRoutineComplete: ((fromTimerCompletion: Boolean) -> Unit)? = null
+    /** Called when the user finishes the current exercise and there is a next exercise (play exercise-end sound). Not called when routine is complete; use onRoutineComplete(false) for that. */
+    var onExerciseFinishedByUser: (() -> Unit)? = null
     /** Called when the user starts the timer or resets (so UI can clear routine-complete sound guard). */
     var onRunStarted: (() -> Unit)? = null
     /** Called when we are about to start the countdown (button or voice). Play confirmation beep here. */
@@ -146,7 +148,7 @@ class TimerViewModel : ViewModel() {
         _timerState.value = TimerState.Idle
     }
 
-    /** Used for the 'done' voice command in custom mode: mark current as done, go to leftmost uncompleted exercise (or routine complete), reset count, idle. */
+    /** Used for the 'finish' voice command in custom mode: mark current as done, go to leftmost uncompleted exercise (or routine complete), reset count, idle. */
     fun completeExerciseAndGoToNext() {
         countdownJob?.cancel()
 
@@ -158,10 +160,11 @@ class TimerViewModel : ViewModel() {
                 _completedExerciseIndices.value = _completedExerciseIndices.value + idx
                 val next = getFirstUncompletedIndex()
                 if (next != null) {
+                    onExerciseFinishedByUser?.invoke()
                     _currentExerciseIndex.value = next
                     _currentCount.value = repCountByExerciseIndex.getOrDefault(next, 0)
                 } else {
-                    // Last exercise just marked done; routine is complete (user tapped/said Done)
+                    // Last exercise just marked done; routine is complete (user tapped/said Finish)
                     _currentCount.value = 0
                     onRoutineComplete?.invoke(false)
                 }

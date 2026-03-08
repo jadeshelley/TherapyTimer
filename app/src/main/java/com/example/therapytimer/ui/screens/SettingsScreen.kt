@@ -1,6 +1,7 @@
 package com.example.therapytimer.ui.screens
 
 import android.content.Intent
+import android.net.Uri
 import android.media.RingtoneManager
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -8,6 +9,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -16,6 +18,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -36,6 +39,7 @@ fun SettingsScreen(
     preferencesManager: PreferencesManager,
     billingManager: BillingManager,
     onNavigateBack: () -> Unit,
+    onVoiceMatchStrictnessChanged: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -51,11 +55,13 @@ fun SettingsScreen(
     var editRoutineForNew by remember { mutableStateOf<NamedRoutine?>(null) }
     var showInstructions by remember { mutableStateOf(false) }
     var showPaywall by remember { mutableStateOf(false) }
+    var showAboutDialog by remember { mutableStateOf(false) }
     var fullVersionUnlocked by remember { mutableStateOf(preferencesManager.getFullVersionUnlocked()) }
     var billingReady by remember { mutableStateOf(false) }
     var purchaseInProgress by remember { mutableStateOf(false) }
     var restoreInProgress by remember { mutableStateOf(false) }
     val priceString = remember(billingReady) { if (billingReady) billingManager.getPriceString() else null }
+    var secretTapCount by remember { mutableStateOf(0) }
     LaunchedEffect(showPaywall) {
         if (showPaywall) {
             billingManager.onPurchaseSuccess = {
@@ -158,6 +164,41 @@ fun SettingsScreen(
                 .padding(16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
+            // Unlock Pro (show when free — in both basic and custom mode)
+            if (!fullVersionUnlocked) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp)
+                        .clickable { showPaywall = true },
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Unlock Pro",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "Add and edit routines, import & export",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Text("→", fontSize = 18.sp, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+            }
+
             // Save button (top)
             val performSave: () -> Unit = {
                 if (selectedMode == "basic") {
@@ -226,134 +267,6 @@ fun SettingsScreen(
                     modifier = Modifier.weight(1f)
                 )
             }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Mute all sounds
-            var muteAllSounds by remember { mutableStateOf(preferencesManager.getMuteAllSounds()) }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Mute all sounds",
-                    fontSize = 16.sp
-                )
-                Switch(
-                    checked = muteAllSounds,
-                    onCheckedChange = {
-                        muteAllSounds = it
-                        preferencesManager.setMuteAllSounds(it)
-                    }
-                )
-            }
-
-            // Notification Sound Setting
-            Text(
-                text = "Notification Sound",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-            
-            val ringtonePickerLauncher = rememberLauncherForActivityResult(
-                contract = ActivityResultContracts.StartActivityForResult()
-            ) { result ->
-                if (result.resultCode == android.app.Activity.RESULT_OK) {
-                    val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        result.data?.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI, android.net.Uri::class.java)
-                    } else {
-                        @Suppress("DEPRECATION")
-                        result.data?.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI) as android.net.Uri?
-                    }
-                    if (uri != null) {
-                        preferencesManager.setNotificationSoundUri(uri)
-                        val ringtone = RingtoneManager.getRingtone(context, uri)
-                        val name = ringtone?.getTitle(context) ?: "Custom Sound"
-                        preferencesManager.setNotificationSoundName(name)
-                        notificationSoundName = name
-                    } else {
-                        // User selected "None" or default
-                        preferencesManager.setNotificationSoundUri(null)
-                        preferencesManager.setNotificationSoundName("Default")
-                        notificationSoundName = "Default"
-                    }
-                }
-            }
-            
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = notificationSoundName,
-                            fontSize = 16.sp
-                        )
-                        Text(
-                            text = "Tap to change",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Button(
-                        onClick = {
-                            val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
-                                putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_NOTIFICATION)
-                                putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "Select Notification Sound")
-                                val currentUri = preferencesManager.getNotificationSoundUri()
-                                putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, currentUri)
-                                putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
-                                putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, true)
-                            }
-                            ringtonePickerLauncher.launch(intent)
-                        }
-                    ) {
-                        Text("Change")
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // How to use / Instructions
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp)
-                    .clickable { showInstructions = true },
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer
-                )
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "How to use this app",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text("→", fontSize = 18.sp, color = MaterialTheme.colorScheme.primary)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
 
             if (selectedMode != "basic") {
                 // Custom mode: routine list; free users see only Demo Routine and cannot Edit/Add/Import/Export
@@ -514,47 +427,213 @@ fun SettingsScreen(
                     }
                 }
                 }
+            }
 
-                // Unlock Pro (show when free)
-                if (!fullVersionUnlocked) {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 16.dp)
-                            .clickable { showPaywall = true },
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer
-                        )
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "Unlock Pro",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                Text(
-                                    text = "Add and edit routines, import & export",
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Text("→", fontSize = 18.sp, color = MaterialTheme.colorScheme.primary)
-                        }
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Mute all sounds
+            var muteAllSounds by remember { mutableStateOf(preferencesManager.getMuteAllSounds()) }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Mute all sounds",
+                    fontSize = 16.sp
+                )
+                Switch(
+                    checked = muteAllSounds,
+                    onCheckedChange = {
+                        muteAllSounds = it
+                        preferencesManager.setMuteAllSounds(it)
                     }
+                )
+            }
+
+            // Voice command matching
+            var voiceMatchStrictness by remember { mutableStateOf(preferencesManager.getVoiceMatchStrictness()) }
+            Text(
+                text = "Voice Matching (Set this higher if you are having false \"Voice Command\" starts).",
+                fontSize = 16.sp,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(bottom = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf("Strict" to 0, "Medium" to 1, "Relaxed" to 2).forEach { (label, value) ->
+                    FilterChip(
+                        selected = voiceMatchStrictness == value,
+                        onClick = {
+                            voiceMatchStrictness = value
+                            preferencesManager.setVoiceMatchStrictness(value)
+                            onVoiceMatchStrictnessChanged?.invoke()
+                        },
+                        label = { Text(label) }
+                    )
+                }
+            }
+
+            // App theme (dark / light)
+            var themeMode by remember { mutableStateOf(preferencesManager.getThemeMode()) }
+            Text(
+                text = "App theme",
+                fontSize = 16.sp,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(bottom = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf("Light" to "light", "Dark" to "dark").forEach { (label, value) ->
+                    FilterChip(
+                        selected = themeMode == value,
+                        onClick = {
+                            themeMode = value
+                            preferencesManager.setThemeMode(value)
+                        },
+                        label = { Text(label) }
+                    )
+                }
+            }
+
+            // Notification Sound Setting
+            Text(
+                text = "Notification Sound",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+            
+            val ringtonePickerLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.StartActivityForResult()
+            ) { result ->
+                if (result.resultCode == android.app.Activity.RESULT_OK) {
+                    val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        result.data?.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI, android.net.Uri::class.java)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        result.data?.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI) as android.net.Uri?
+                    }
+                    if (uri != null) {
+                        preferencesManager.setNotificationSoundUri(uri)
+                        val ringtone = RingtoneManager.getRingtone(context, uri)
+                        val name = ringtone?.getTitle(context) ?: "Custom Sound"
+                        preferencesManager.setNotificationSoundName(name)
+                        notificationSoundName = name
+                    } else {
+                        // User selected "None" or default
+                        preferencesManager.setNotificationSoundUri(null)
+                        preferencesManager.setNotificationSoundName("Default")
+                        notificationSoundName = "Default"
+                    }
+                }
+            }
+            
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = notificationSoundName,
+                            fontSize = 16.sp
+                        )
+                        Text(
+                            text = "Tap to change",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Button(
+                        onClick = {
+                            val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
+                                putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_NOTIFICATION)
+                                putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "Select Notification Sound")
+                                val currentUri = preferencesManager.getNotificationSoundUri()
+                                putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, currentUri)
+                                putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+                                putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, true)
+                            }
+                            ringtonePickerLauncher.launch(intent)
+                        }
+                    ) {
+                        Text("Change")
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // How to use / Instructions
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp)
+                    .clickable { showInstructions = true },
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "How to use this app",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text("→", fontSize = 18.sp, color = MaterialTheme.colorScheme.primary)
                 }
             }
 
             if (showPaywall) {
                 AlertDialog(
-                    onDismissRequest = { showPaywall = false },
-                    title = { Text("Unlock Pro") },
+                    onDismissRequest = {
+                        showPaywall = false
+                        secretTapCount = 0
+                    },
+                    title = {
+                        Box(
+                            modifier = Modifier.clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null
+                            ) {
+                                secretTapCount++
+                                if (secretTapCount >= 10) {
+                                    preferencesManager.setFullVersionUnlocked(true)
+                                    fullVersionUnlocked = true
+                                    showPaywall = false
+                                    routines = preferencesManager.getSavedRoutines()
+                                    selectedRoutineId = preferencesManager.getCurrentRoutineId()
+                                    secretTapCount = 0
+                                }
+                            }
+                        ) {
+                            Text("Unlock Pro")
+                        }
+                    },
                     text = {
                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             Text(
@@ -673,7 +752,74 @@ fun SettingsScreen(
                     }
                 )
             }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // About this App (bottom)
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp)
+                    .clickable { showAboutDialog = true },
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "About this App",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text("→", fontSize = 18.sp, color = MaterialTheme.colorScheme.primary)
+                }
+            }
+
+            if (showAboutDialog) {
+                val versionName = try {
+                    context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.0"
+                } catch (e: Exception) { "1.0" }
+                AlertDialog(
+                    onDismissRequest = { showAboutDialog = false },
+                    title = { Text("About this App") },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            TextButton(
+                                onClick = {
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://jadeshelley.github.io/TherapyTimer/docs/privacy-policy.html")))
+                                }
+                            ) {
+                                Text("Privacy Policy", color = MaterialTheme.colorScheme.primary)
+                            }
+                            TextButton(
+                                onClick = {
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://jadeshelley.github.io/TherapyTimer/docs/terms-and-conditions.html")))
+                                }
+                            ) {
+                                Text("Terms & Conditions", color = MaterialTheme.colorScheme.primary)
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "App Version $versionName",
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { showAboutDialog = false }) {
+                            Text("OK", color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                )
+            }
         }
     }
-    }
+}
 }

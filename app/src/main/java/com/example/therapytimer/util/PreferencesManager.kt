@@ -170,9 +170,23 @@ class PreferencesManager(context: Context) {
     fun getVoiceControlEnabled(): Boolean = prefs.getBoolean("voice_control_enabled", true)
     fun setVoiceControlEnabled(enabled: Boolean) = prefs.edit().putBoolean("voice_control_enabled", enabled).apply()
 
+    /** Voice command matching: 0 = Strict, 1 = Medium, 2 = Relaxed. Default 1 (Medium). */
+    fun getVoiceMatchStrictness(): Int = prefs.getInt("voice_match_strictness", 1).coerceIn(0, 2)
+    fun setVoiceMatchStrictness(strictness: Int) = prefs.edit().putInt("voice_match_strictness", strictness.coerceIn(0, 2)).apply()
+
     /** True if user has unlocked the full version (multiple routines, edit, add, import, export). */
     fun getFullVersionUnlocked(): Boolean = prefs.getBoolean("full_version_unlocked", false)
     fun setFullVersionUnlocked(unlocked: Boolean) = prefs.edit().putBoolean("full_version_unlocked", unlocked).apply()
+
+    /** Theme: "light", "dark", or "system". Default "dark". */
+    fun getThemeMode(): String {
+        val v = prefs.getString("theme_mode", "dark") ?: "dark"
+        return if (v in listOf("light", "dark", "system")) v else "dark"
+    }
+    fun setThemeMode(mode: String) {
+        val v = if (mode in listOf("light", "dark", "system")) mode else "dark"
+        prefs.edit().putString("theme_mode", v).apply()
+    }
 
     fun getMuteAllSounds(): Boolean = prefs.getBoolean("mute_all_sounds", false)
     fun setMuteAllSounds(muted: Boolean) = prefs.edit().putBoolean("mute_all_sounds", muted).apply()

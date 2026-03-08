@@ -15,11 +15,11 @@ class SoundPlayer(private val context: Context, private val preferencesManager: 
     private var mediaPlayer: MediaPlayer? = null
     private val random = Random()
 
-    /** Short beep to confirm a voice command was accepted. Uses alarm stream at 50% volume. */
+    /** Short beep to confirm a voice command was accepted. Uses music stream so it routes to headset. */
     fun playConfirmationBeep() {
         if (preferencesManager.getMuteAllSounds()) return
         try {
-            val tg = ToneGenerator(AudioManager.STREAM_ALARM, 50)
+            val tg = ToneGenerator(AudioManager.STREAM_MUSIC, 100)
             tg.startTone(ToneGenerator.TONE_PROP_BEEP, 150)
             Handler(Looper.getMainLooper()).postDelayed({
                 tg.release()
@@ -44,6 +44,7 @@ class SoundPlayer(private val context: Context, private val preferencesManager: 
                 onComplete?.invoke()
                 return
             }
+            mediaPlayer?.setAudioStreamType(AudioManager.STREAM_MUSIC)
             mediaPlayer?.start()
             mediaPlayer?.setOnCompletionListener {
                 it.release()
@@ -77,6 +78,7 @@ class SoundPlayer(private val context: Context, private val preferencesManager: 
         try {
             mediaPlayer?.release()
             mediaPlayer = MediaPlayer()
+            mediaPlayer?.setAudioStreamType(AudioManager.STREAM_MUSIC)
             context.assets.openFd("numbers/${count}count.mp3").use { afd ->
                 mediaPlayer?.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
             }
@@ -112,6 +114,7 @@ class SoundPlayer(private val context: Context, private val preferencesManager: 
         try {
             mediaPlayer?.release()
             mediaPlayer = MediaPlayer()
+            mediaPlayer?.setAudioStreamType(AudioManager.STREAM_MUSIC)
             context.assets.openFd("exercise_end.mp3").use { afd ->
                 mediaPlayer?.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
             }
@@ -154,6 +157,7 @@ class SoundPlayer(private val context: Context, private val preferencesManager: 
         try {
             mediaPlayer?.release()
             mediaPlayer = MediaPlayer()
+            mediaPlayer?.setAudioStreamType(AudioManager.STREAM_MUSIC)
             context.assets.openFd("finished/Finished5.mp3").use { afd ->
                 mediaPlayer?.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
             }
@@ -175,6 +179,7 @@ class SoundPlayer(private val context: Context, private val preferencesManager: 
         try {
             mediaPlayer?.release()
             mediaPlayer = MediaPlayer()
+            mediaPlayer?.setAudioStreamType(AudioManager.STREAM_MUSIC)
             context.assets.openFd(fileName).use { afd ->
                 mediaPlayer?.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
             }

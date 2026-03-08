@@ -1,6 +1,6 @@
 # Vosk Voice Recognition Model Setup
 
-Therapy Timer uses **Vosk** for on-device voice commands (start, next, done, restart, reset). No Google or network is used.
+Therapy Timer uses **Vosk** for on-device voice commands (start, next, finish, restart, reset). No Google or network is used.
 
 ## Automatic download (default)
 

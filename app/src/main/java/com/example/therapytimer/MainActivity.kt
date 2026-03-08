@@ -14,6 +14,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.core.content.ContextCompat
@@ -39,8 +40,6 @@ class MainActivity : ComponentActivity() {
     private lateinit var preferencesManager: PreferencesManager
     private lateinit var billingManager: BillingManager
     private var audioManager: AudioManager? = null
-    /** Saved notification volume before we mute; -1 means not saved. Restored on unmute/exit. */
-    private var savedNotificationVolume: Int = -1
     /** Saved media volume before app changed it; -1 means not saved. Restored on pause/destroy. */
     private var savedMediaVolumeBeforeApp: Int = -1
     private var isVoiceControlEnabled: Boolean = true  // Restored from preferences in onCreate
@@ -78,6 +77,7 @@ class MainActivity : ComponentActivity() {
         billingManager = BillingManager(this, preferencesManager)
         soundPlayer = SoundPlayer(this, preferencesManager)
         voiceRecognitionManager = VoiceRecognitionManager(this)
+        voiceRecognitionManager.voiceMatchStrictness = preferencesManager.getVoiceMatchStrictness()
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
         isVoiceControlEnabled = preferencesManager.getVoiceControlEnabled()
@@ -141,7 +141,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Routine complete: if from timer, play "finished" after the last rep's count; if from Done button/voice, play now
+        // Routine complete: if from timer, play "finished" after the last rep's count; if from Finish button/voice, play exercise-end then "finished"
         viewModel.onRoutineComplete = { fromTimerCompletion ->
             runOnUiThread {
                 if (fromTimerCompletion) {
@@ -149,10 +149,16 @@ class MainActivity : ComponentActivity() {
                 } else {
                     if (!routineCompleteSoundPlayed) {
                         routineCompleteSoundPlayed = true
-                        soundPlayer?.playRandomFinished()
+                        soundPlayer?.playExerciseEndSound {
+                            soundPlayer?.playRandomFinished()
+                        }
                     }
                 }
             }
+        }
+
+        viewModel.onExerciseFinishedByUser = {
+            runOnUiThread { soundPlayer?.playExerciseEndSound() }
         }
 
         // Clear routine-complete sound guard when user starts or resets so next completion can play
@@ -177,8 +183,14 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             var voiceControlEnabledState by remember { mutableStateOf(isVoiceControlEnabled) }
+            var themeMode by remember { mutableStateOf(preferencesManager.getThemeMode()) }
+            val darkTheme = when (themeMode) {
+                "dark" -> true
+                "light" -> false
+                else -> isSystemInDarkTheme()
+            }
 
-            TherapyTimerTheme {
+            TherapyTimerTheme(darkTheme = darkTheme) {
                 TherapyTimerApp(
                     viewModel = viewModel,
                     preferencesManager = preferencesManager,
@@ -192,19 +204,17 @@ class MainActivity : ComponentActivity() {
                     onMainScreenShown = {
                         hasReachedMainScreen = true
                         if (isVoiceControlEnabled) {
-                            setNotificationMute(true)
                             voiceRecognitionManager.startListening()
                         }
                     },
                     onSettingsOpened = {
                         if (isVoiceControlEnabled) {
                             voiceRecognitionManager.stopListening()
-                            setNotificationMute(false)
                         }
                     },
                     onSettingsClosed = {
+                        themeMode = preferencesManager.getThemeMode()
                         if (isVoiceControlEnabled) {
-                            setNotificationMute(true)
                             voiceRecognitionManager.startListening()
                         }
                     },
@@ -213,11 +223,9 @@ class MainActivity : ComponentActivity() {
                         voiceControlEnabledState = isVoiceControlEnabled
                         preferencesManager.setVoiceControlEnabled(isVoiceControlEnabled)
                         if (isVoiceControlEnabled) {
-                            setNotificationMute(true)
                             voiceRecognitionManager.startListening()
                         } else {
                             voiceRecognitionManager.stopListening()
-                            setNotificationMute(false)
                         }
                     }
                 )
@@ -261,10 +269,10 @@ class MainActivity : ComponentActivity() {
                 runOnUiThread {
                     if (!isOnTimerScreen) return@runOnUiThread
                     if (viewModel.isBasicMode.value) {
-                        // In basic mode, "done" behaves like reset (new simple exercise)
+                        // In basic mode, "finish" behaves like reset (new simple exercise)
                         viewModel.resetExercise()
                     } else {
-                        // In custom mode, "done" moves to the next exercise instead of going back to the first
+                        // In custom mode, "finish" moves to the next exercise instead of going back to the first
                         viewModel.completeExerciseAndGoToNext()
                     }
                 }
@@ -319,37 +327,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /** Mute notification stream (save level, set to 0) or restore saved level. Uses setStreamVolume like TestSound app. */
-    private fun setNotificationMute(mute: Boolean) {
-        val am = audioManager ?: return
-        try {
-            if (mute) {
-                if (savedNotificationVolume < 0) {
-                    savedNotificationVolume = am.getStreamVolume(AudioManager.STREAM_NOTIFICATION)
-                }
-                am.setStreamVolume(AudioManager.STREAM_NOTIFICATION, 0, 0)
-            } else {
-                if (savedNotificationVolume >= 0) {
-                    val maxVol = am.getStreamMaxVolume(AudioManager.STREAM_NOTIFICATION)
-                    am.setStreamVolume(
-                        AudioManager.STREAM_NOTIFICATION,
-                        savedNotificationVolume.coerceIn(0, maxVol),
-                        0
-                    )
-                    savedNotificationVolume = -1
-                }
-            }
-        } catch (e: Exception) {
-            android.util.Log.w("MainActivity", "setNotificationMute failed", e)
-        }
-    }
-
     override fun onPause() {
         super.onPause()
         saveAndRestoreMediaVolume()
         if (isVoiceControlEnabled) {
             voiceRecognitionManager.stopListening()
-            setNotificationMute(false)
         }
     }
 
@@ -357,7 +339,6 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         applyAppMediaVolume()
         if (hasReachedMainScreen && isVoiceControlEnabled) {
-            setNotificationMute(true)
             voiceRecognitionManager.startListening()
         }
     }
@@ -365,7 +346,6 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         super.onDestroy()
         saveAndRestoreMediaVolume()
-        setNotificationMute(false)
         voiceRecognitionManager.destroy()
         soundPlayer?.release()
     }
@@ -437,6 +417,9 @@ fun TherapyTimerApp(
             onNavigateBack = {
                 showSettings = false
                 onSettingsClosed()
+            },
+            onVoiceMatchStrictnessChanged = {
+                voiceRecognitionManager.voiceMatchStrictness = preferencesManager.getVoiceMatchStrictness()
             }
         )
     } else {

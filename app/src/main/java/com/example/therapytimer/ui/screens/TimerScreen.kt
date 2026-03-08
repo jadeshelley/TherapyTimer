@@ -355,7 +355,7 @@ fun TimerScreen(
                     }
                 }
 
-                // Done = go to next exercise, or Exit when routine complete (custom mode only)
+                // Finish = go to next exercise, or Exit when routine complete (custom mode only)
                 if (!isBasicMode) {
                     val context = LocalContext.current
                     if (routineComplete) {
@@ -391,7 +391,7 @@ fun TimerScreen(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.Center
                             ) {
-                                Text("Done", fontSize = 18.sp)
+                                Text("Finish", fontSize = 18.sp)
                                 Text("Go to next exercise", fontSize = 12.sp)
                             }
                         }
@@ -510,7 +510,7 @@ fun TimerScreen(
                                 }
                                 Column {
                                     Text(
-                                        text = "Done",
+                                        text = "Finish",
                                         fontSize = 16.sp,
                                         fontWeight = FontWeight.Bold
                                     )
@@ -540,7 +540,7 @@ fun TimerScreen(
                         },
                         confirmButton = {
                             TextButton(onClick = { showVoiceCommandsDialog = false }) {
-                                Text("Done")
+                                Text("Close")
                             }
                         }
                     )

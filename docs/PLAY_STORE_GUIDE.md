@@ -51,21 +51,35 @@ You can leave **Store listing** (description, screenshots) as draft for now; you
 
 ### Step 3: Sign the app and build an AAB
 
-Your app is already set up to use a **release keystore** when `keystore.properties` exists.
+Your app is already set up to use a **release keystore** when a file named `keystore.properties` exists in the project. Do the steps below **in order**: first create the keystore, then add `keystore.properties`, then build.
 
-1. **Create a keystore** (one-time):
-   - In Android Studio: **Build → Generate Signed Bundle / APK**.
-   - Choose **Android App Bundle** → **Next**.
-   - Click **Create new...** and create a new keystore:
-     - Save the `.jks` file somewhere safe (e.g. `therapy-timer-keystore.jks`).
-     - Set **Key store password**, **Key alias**, **Key password**.
-     - **Back up the .jks file and passwords**; you need them for every future update.
-2. **Configure the project** to use it:
-   - Copy `keystore.properties.example` to **`keystore.properties`** in the project root.
-   - Edit `keystore.properties`: set `storePassword`, `keyPassword`, `keyAlias`, and `storeFile` (full path to the `.jks` file).
-3. **Build the release AAB**:
-   - **Build → Generate Signed Bundle / APK** → **Android App Bundle** → select your keystore → **release** → **Create**.
-   - The `.aab` file is in `app/release/` (or the path shown in the dialog).
+**Step 3a — Create a keystore (one-time)**  
+- In Android Studio: **Build → Generate Signed Bundle / APK**.
+- Choose **Android App Bundle** → **Next**.
+- Click **Create new...** (not “Choose existing”) and create a new keystore:
+  - **Key store path**: Save the file somewhere safe, e.g. `C:\Users\YourName\therapy-timer-keystore.jks`. Remember this path.
+  - **Password**: Set **Key store password** and **Key alias** (e.g. `therapy-timer-key`) and **Key password**.
+  - **Back up the .jks file and both passwords**; you need them for every future app update.
+- Click **OK**. You can leave the “Generate Signed Bundle” dialog open or cancel for now; you’ll build again in Step 3c.
+
+**Step 3b — Configure the project to use that keystore**  
+The project already contains a **template** file. You copy it and fill in your real values.
+
+- In your **TherapyTimer** project folder (the same folder that contains `app` and `build.gradle.kts`), find the file **`keystore.properties.example`**.
+- **Copy** that file (duplicate it) in the same folder and **rename the copy** to **`keystore.properties`**.  
+  (So you end up with two files: `keystore.properties.example` and `keystore.properties`.)
+- **Edit** `keystore.properties` (the new file) and replace the placeholders with your real values:
+  - `storePassword=` the Key store password you set in Step 3a
+  - `keyPassword=` the Key password you set in Step 3a
+  - `keyAlias=` the alias you set (e.g. `therapy-timer-key`)
+  - `storeFile=` the **full path** to your `.jks` file, e.g. `C:/Users/YourName/therapy-timer-keystore.jks` (use forward slashes).
+- Save the file. Do **not** commit `keystore.properties` to Git (it’s in `.gitignore`).
+
+**Step 3c — Build the release AAB**  
+- **Build → Generate Signed Bundle / APK** → **Android App Bundle** → **Next**.
+- Either choose your **existing** keystore (the .jks you created) and enter the passwords again, **or** if the project is configured correctly, Android Studio may use `keystore.properties` and fill the path and passwords for you.
+- Select **release** → **Create**.
+- The `.aab` file will be in `app/release/` (or the path shown when the build finishes).
 
 ### Step 4: Upload to Internal testing
 

@@ -62,6 +62,10 @@ class VoiceRecognitionManager(private val context: Context) {
     /** Called whenever recognition produces non-empty text (partial or final). */
     var onRecognizedText: ((String) -> Unit)? = null
 
+    /** 0 = Strict (exact), 1 = Medium (fuzzy ≤1), 2 = Relaxed (fuzzy ≤2). */
+    var voiceMatchStrictness: Int = 1
+        set(value) { field = value.coerceIn(0, 2) }
+
     companion object {
         private const val TAG = "VoiceRecognition"
         /** Path inside assets to the Vosk model folder (must be bundled with the app). */
@@ -185,7 +189,7 @@ class VoiceRecognitionManager(private val context: Context) {
 
         try {
             audioRecord = android.media.AudioRecord(
-                android.media.MediaRecorder.AudioSource.MIC,
+                android.media.MediaRecorder.AudioSource.VOICE_RECOGNITION,
                 SAMPLE_RATE,
                 android.media.AudioFormat.CHANNEL_IN_MONO,
                 android.media.AudioFormat.ENCODING_PCM_16BIT,
@@ -288,6 +292,71 @@ class VoiceRecognitionManager(private val context: Context) {
         _isListening.value = false
     }
 
+    private fun levenshtein(a: String, b: String): Int {
+        val m = a.length
+        val n = b.length
+        val dp = Array(m + 1) { IntArray(n + 1) }
+        for (i in 0..m) dp[i][0] = i
+        for (j in 0..n) dp[0][j] = j
+        for (i in 1..m)
+            for (j in 1..n)
+                dp[i][j] = minOf(
+                    dp[i - 1][j] + 1,
+                    dp[i][j - 1] + 1,
+                    dp[i - 1][j - 1] + if (a[i - 1] == b[j - 1]) 0 else 1
+                )
+        return dp[m][n]
+    }
+
+    /**
+     * Returns Levenshtein distance and the set of 0-based indices in string [a] (the word)
+     * where an edit occurred (substitution, deletion, or insertion before that index).
+     */
+    private fun levenshteinWithEditPositions(a: String, b: String): Pair<Int, Set<Int>> {
+        val m = a.length
+        val n = b.length
+        val dp = Array(m + 1) { IntArray(n + 1) }
+        for (i in 0..m) dp[i][0] = i
+        for (j in 0..n) dp[0][j] = j
+        for (i in 1..m)
+            for (j in 1..n)
+                dp[i][j] = minOf(
+                    dp[i - 1][j] + 1,
+                    dp[i][j - 1] + 1,
+                    dp[i - 1][j - 1] + if (a[i - 1] == b[j - 1]) 0 else 1
+                )
+        val edits = mutableSetOf<Int>()
+        var i = m
+        var j = n
+        while (i > 0 || j > 0) {
+            when {
+                i > 0 && j > 0 && a[i - 1] == b[j - 1] && dp[i][j] == dp[i - 1][j - 1] -> { i--; j-- }
+                i > 0 && j > 0 && dp[i][j] == dp[i - 1][j - 1] + 1 -> { edits.add(i - 1); i--; j-- }
+                i > 0 && dp[i][j] == dp[i - 1][j] + 1 -> { edits.add(i - 1); i-- }
+                j > 0 && dp[i][j] == dp[i][j - 1] + 1 -> { edits.add(i); j-- }
+                else -> { i--; j-- }
+            }
+        }
+        return Pair(dp[m][n], edits)
+    }
+
+    private fun wordMatchesFuzzy(word: String, target: String, maxDist: Int): Boolean {
+        if (word.length < target.length - maxDist || word.length > target.length + maxDist) return false
+        return levenshtein(word, target) <= maxDist
+    }
+
+    /** Fuzzy match only if every edit is in the first 2 or last 2 character positions of the word. */
+    private fun wordMatchesFuzzyPrefixSuffixOnly(word: String, target: String, maxDist: Int): Boolean {
+        if (word.length < target.length - maxDist || word.length > target.length + maxDist) return false
+        val (dist, editPositions) = levenshteinWithEditPositions(word, target)
+        if (dist > maxDist) return false
+        if (editPositions.isEmpty()) return true
+        val len = word.length
+        val first2 = 0..1
+        val last2 = (len - 2).coerceAtLeast(0)..len
+        return editPositions.all { it in first2 || it in last2 }
+    }
+
     private fun processVoiceCommand(text: String) {
         if (text.isBlank()) return
         val currentTime = System.currentTimeMillis()
@@ -305,28 +374,78 @@ class VoiceRecognitionManager(private val context: Context) {
             return
         }
 
-        // Start: match as word so "one start", "twenty start", "3 start" etc. all work (number doesn't matter)
-        if (text.contains(Regex("\\b(start|starts|star|stat)\\b", RegexOption.IGNORE_CASE))) {
-            lastProcessedCommand = text
-            lastProcessedTime = currentTime
-            Log.d(TAG, "Detected 'start' command")
-            onStartDetected?.invoke()
-            return
+        val maxDist = when (voiceMatchStrictness) {
+            0 -> -1
+            1 -> 1
+            else -> 2
+        }
+        val words = text.lowercase().split(Regex("\\W+")).filter { it.isNotEmpty() }
+
+        if (maxDist < 0) {
+            if (text.contains(Regex("\\b(start|starts|star|stat)\\b", RegexOption.IGNORE_CASE))) {
+                lastProcessedCommand = text
+                lastProcessedTime = currentTime
+                Log.d(TAG, "Detected 'start' command")
+                onStartDetected?.invoke()
+                return
+            }
+            if (text.contains(Regex("\\b(next|nex)\\b", RegexOption.IGNORE_CASE))) {
+                lastProcessedCommand = text
+                lastProcessedTime = currentTime
+                Log.d(TAG, "Detected 'next' command")
+                onNextDetected?.invoke()
+                return
+            }
+        } else {
+            // Avoid treating "re start" (misheard "restart") as "start"
+            val looksLikeRestart = words.size >= 2 && (1 until words.size).any { i ->
+                words[i - 1] == "re" && words[i].length in 3..6 && wordMatchesFuzzyPrefixSuffixOnly(words[i], "start", maxDist)
+            }
+            val startMatch = !looksLikeRestart && words.any { w -> w.length in 3..6 && wordMatchesFuzzyPrefixSuffixOnly(w, "start", maxDist) }
+            if (startMatch) {
+                lastProcessedCommand = text
+                lastProcessedTime = currentTime
+                Log.d(TAG, "Detected 'start' command (fuzzy)")
+                onStartDetected?.invoke()
+                return
+            }
+            if (looksLikeRestart) {
+                lastProcessedCommand = text
+                lastProcessedTime = currentTime
+                Log.d(TAG, "Detected 'restart' command (re start)")
+                onRestartDetected?.invoke()
+                return
+            }
+            val nextMatch = words.any { w -> w.length in 3..5 && wordMatchesFuzzyPrefixSuffixOnly(w, "next", maxDist) }
+            if (nextMatch) {
+                lastProcessedCommand = text
+                lastProcessedTime = currentTime
+                Log.d(TAG, "Detected 'next' command (fuzzy)")
+                onNextDetected?.invoke()
+                return
+            }
+            // In addition to fuzzy "next" above: Medium also accepts "max" as next
+            if (voiceMatchStrictness == 1 && text.contains(Regex("\\bmax\\b"))) {
+                lastProcessedCommand = text
+                lastProcessedTime = currentTime
+                Log.d(TAG, "Detected 'next' command (alias: max)")
+                onNextDetected?.invoke()
+                return
+            }
+            // In addition to fuzzy "next" above: Relaxed also accepts "max", "mixed", "mags" as next
+            if (voiceMatchStrictness >= 2 && text.contains(Regex("\\b(max|mixed|mags)\\b"))) {
+                lastProcessedCommand = text
+                lastProcessedTime = currentTime
+                Log.d(TAG, "Detected 'next' command (alias: max/mixed/mags)")
+                onNextDetected?.invoke()
+                return
+            }
         }
 
-        // Next: match as word so "one next" / "two next" advance rep
-        if (text.contains(Regex("\\b(next|nex)\\b", RegexOption.IGNORE_CASE))) {
+        if (text.contains(Regex("\\b(finish|finished)\\b"))) {
             lastProcessedCommand = text
             lastProcessedTime = currentTime
-            Log.d(TAG, "Detected 'next' command")
-            onNextDetected?.invoke()
-            return
-        }
-
-        if (text.contains(Regex("\\bdone\\b"))) {
-            lastProcessedCommand = text
-            lastProcessedTime = currentTime
-            Log.d(TAG, "Detected 'done' command")
+            Log.d(TAG, "Detected 'finish' command")
             onDoneDetected?.invoke()
             return
         }
