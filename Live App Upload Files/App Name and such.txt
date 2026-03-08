@@ -1,0 +1,3 @@
+App Name: Therapy Timer: Voice Control
+
+My one sentence: Voice-controlled exercise timer for therapy & rehab. Custom routines, rep count.
