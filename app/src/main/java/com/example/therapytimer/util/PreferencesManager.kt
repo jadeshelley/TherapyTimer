@@ -170,8 +170,8 @@ class PreferencesManager(context: Context) {
     fun getVoiceControlEnabled(): Boolean = prefs.getBoolean("voice_control_enabled", true)
     fun setVoiceControlEnabled(enabled: Boolean) = prefs.edit().putBoolean("voice_control_enabled", enabled).apply()
 
-    /** Voice command matching: 0 = Strict, 1 = Medium, 2 = Relaxed. Default 1 (Medium). */
-    fun getVoiceMatchStrictness(): Int = prefs.getInt("voice_match_strictness", 1).coerceIn(0, 2)
+    /** Voice command matching: 0 = Strict, 1 = Medium, 2 = Relaxed. Default 2 (Relaxed). */
+    fun getVoiceMatchStrictness(): Int = prefs.getInt("voice_match_strictness", 2).coerceIn(0, 2)
     fun setVoiceMatchStrictness(strictness: Int) = prefs.edit().putInt("voice_match_strictness", strictness.coerceIn(0, 2)).apply()
 
     /** True if user has unlocked the full version (multiple routines, edit, add, import, export). */
@@ -244,3 +244,4 @@ class PreferencesManager(context: Context) {
         } catch (_: Exception) { /* ignore */ }
     }
 }
+
