@@ -121,6 +121,12 @@ fun InstructionsScreen(
                 HorizontalDivider()
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
+                    text = "To hear sounds, make sure your \"Media\" volume is turned up!",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+                Text(
                     text = "* You can view these instructions again anytime in \"Settings\".",
                     fontSize = 14.sp,
                     fontStyle = FontStyle.Italic,
